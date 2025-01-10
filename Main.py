@@ -9,6 +9,7 @@ import os
 st.set_page_config(
     page_title="ML@ML Schedule",
     page_icon="logo.png",
+    initial_sidebar_state="collapsed",
     layout="centered"
 )
 
@@ -51,7 +52,27 @@ with top_container:
 # ----- GET QUERY PARAMS -----
 selected_date_str = st.query_params.get("date", "")
 
-# ======================== DETAIL VIEW (IF 'date' PARAM IS PROVIDED) ========================
+########################################
+# UTILITY FUNCTIONS FOR MATERIALS
+########################################
+DATA_FILE = "materials_data.json"
+
+def load_materials_data():
+    """Load the materials from a JSON file, or return an empty dict if it doesn't exist."""
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    else:
+        return {}
+
+def save_materials_data(data):
+    """Write the entire materials structure to JSON."""
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+########################################
+# DETAIL VIEW
+########################################
 if selected_date_str:
     # 1. Convert to date object if possible
     try:
@@ -87,7 +108,6 @@ if selected_date_str:
         st.stop()
 
     # 4. Show info about presenters/journal
-    #    (If renamed to "Presenter 1" etc., adjust accordingly)
     role_cols = ["Journal 1", "Journal 2", "Presenter 1", "Presenter 2"]
     role_cols = [col for col in role_cols if col in day_df.columns]
 
@@ -97,21 +117,6 @@ if selected_date_str:
         for col in role_cols:
             if row[col]:
                 st.write(f"- **{col}**: {row[col]}")
-                
-    DATA_FILE = "materials_data.json"
-
-    def load_materials_data():
-        """Load the materials from a JSON file, or return an empty dict if it doesn't exist."""
-        if os.path.exists(DATA_FILE):
-            with open(DATA_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        else:
-            return {}
-
-    def save_materials_data(data):
-        """Write the entire materials structure to JSON."""
-        with open(DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
 
     # 5. Materials / Documents Section (persisted store via JSON)
     st.write("---")
@@ -151,7 +156,6 @@ if selected_date_str:
     else:
         st.write("No materials yet.")
 
-
     # 1. Input fields for Title/Description
     new_title = st.text_input("Document Title or Link:")
 
@@ -159,32 +163,21 @@ if selected_date_str:
     pdf_file = st.file_uploader("Upload a PDF (optional):", type=["pdf"])
 
     if st.button("Add Material"):
-        # Basic validation
         if not new_title.strip():
             st.warning("Please enter a valid document title/link.")
         else:
-            # Build the material dictionary
-            material_entry = {
-                "title": new_title.strip(),
-            }
-            
+            material_entry = {"title": new_title.strip()}
             if pdf_file is not None:
-                # Convert PDF bytes to base64 so we can store it in session_state and JSON
+                # Convert PDF bytes to base64
                 pdf_bytes = pdf_file.read()
                 b64_pdf = base64.b64encode(pdf_bytes).decode("utf-8")
-                # Store the PDF
                 material_entry["pdf_name"] = pdf_file.name
                 material_entry["pdf_data_b64"] = b64_pdf
-            
             # Append to the date-specific list
             materials_data.append(material_entry)
-
-            # Save updated data to JSON
             save_materials_data(st.session_state["materials_data"])
-
             st.success("Material added successfully.")
             st.rerun()
-
 
     st.write("---")
     # 6. “Back to Schedule” button: clear 'date' query param
@@ -192,11 +185,19 @@ if selected_date_str:
         st.query_params.clear()  # Removes all query params
         st.rerun()
 
-# ======================== MAIN SCHEDULE VIEW (NO 'date' QUERY PARAM) ========================
+########################################
+# MAIN SCHEDULE VIEW
+########################################
 else:
     st.title("Weekly Schedule")
 
-    # Load CSV
+    # For demonstration, let's have a simple 'admin' text input in the sidebar
+    admin_mode = False
+    admin_password = st.sidebar.text_input("Admin password:", type="password")
+    if admin_password == "1234":
+        admin_mode = True
+
+    # Load schedule CSV
     try:
         df_full = pd.read_csv("schedule.csv")
     except FileNotFoundError:
@@ -204,17 +205,17 @@ else:
         st.stop()
 
     df_full.fillna("", inplace=True)
-    df = df_full.copy()
-
-    if "Date" in df.columns:
-        df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-        df = df[df["Date"].notna()]
-        df["Date"] = df["Date"].dt.date
+    # Convert Date column if present
+    if "Date" in df_full.columns:
+        df_full["Date"] = pd.to_datetime(df_full["Date"], errors="coerce").dt.date
     else:
         st.warning("No 'Date' column found in CSV.")
         st.stop()
 
-    # Optional: hide past dates
+    # Create a working copy
+    df = df_full.copy()
+
+    # Hide past dates if desired
     hide_past = st.checkbox("Hide past dates", value=True)
     today = datetime.date.today()
     if hide_past:
@@ -231,54 +232,81 @@ else:
             mask = mask | df[c].str.contains(search_name, case=False, na=False)
         df = df[mask]
 
+    # Show a read-only or editable schedule
     if df.empty:
         st.write("No matching rows.")
     else:
-        # We'll build an HTML table so we can embed a 'Details' link for each row
-        def details_link(d):
-            """Return an HTML <a> that sets ?date=YYYY-MM-DD."""
-            return f'<a href="?date={d.strftime("%Y-%m-%d")}">Details</a>'
+        if admin_mode:
+            # EDITABLE for admin
+            st.info("You are in admin mode. Feel free to edit and save the schedule.")
+            edited_df = st.data_editor(
+                df,
+                num_rows="fixed",
+                use_container_width=True,
+                column_config={
+                    "Date": st.column_config.DateColumn("Date"),
+                    "DetailsLink": st.column_config.LinkColumn(
+                        label="Info",
+                        help="Click to view details for this date",
+                        display_text="See Details",
+                        # If you need validation, set validate="^\\?date=.*$" etc.
+                    )
+                },
+                hide_index=True,
+                key="schedule_editor",
+            )
 
-        if "Date" not in df.columns:
-            st.error("No 'Date' column found after transformations.")
+            if st.button("Save changes"):
+                # Convert date column back to string for CSV
+                if "Date" in edited_df.columns:
+                    edited_df["Date"] = edited_df["Date"].astype(str)
+                edited_df.to_csv("schedule.csv", index=False)
+                st.success("Schedule updated and saved to 'schedule.csv'!")
         else:
-            # Create an HTML "Details" link for each row (no 'target', so same tab)
-            def details_link(d):
-                """Return an HTML <a> that sets ?date=YYYY-MM-DD."""
-                return f'<a href="?date={d.strftime("%Y-%m-%d")}">Details</a>'
+            # READ-ONLY for non-admin
+            st.write("You are **not** in admin mode, schedule is read-only.")
+            # st.dataframe(df, use_container_width=True)
 
-            df["Info"] = df["Date"].apply(details_link)
-            # Convert to HTML (escape=False so <a> is clickable)
-            html_table = df.to_html(index=False, escape=False)
-            st.markdown(html_table, unsafe_allow_html=True)
+            # 1) Create a column with just the link (relative query param)
+            df["DetailsLink"] = df["Date"].apply(lambda d: f"?date={d.strftime('%Y-%m-%d')}")
+
+            # 2) Show the DataFrame with LinkColumn
+            st.dataframe(
+                df,
+                column_config={
+                    "Date": st.column_config.DateColumn("Date"),
+                    "DetailsLink": st.column_config.LinkColumn(
+                        label="Info",
+                        help="Click to view details for this date",
+                        display_text="See Details",
+                        # If you need validation, set validate="^\\?date=.*$" etc.
+                    )
+                },
+                hide_index=True,
+                use_container_width=True,
+            )
+
 
     # ----- PARTICIPANT USAGE SCORES -----
     st.write("---")
     st.subheader("Participants")
 
-    # 1) Count weighted usage for each participant (4 points per presentation, 1 per journal)
+    # Weighted usage for each participant (4 points/presentation, 1 point/journal)
     participants_usage = {}
-    role_columns = ["Presenter 1", "Presenter 2", "Journal 1", "Journal 2"]
-    for role_col in role_columns:
-        if role_col in df_full.columns:
-            for person in df_full[role_col]:
-                # Skip if blank
+    for col in ["Presenter 1", "Presenter 2", "Journal 1", "Journal 2"]:
+        if col in df_full.columns:
+            for person in df_full[col]:
                 if not person:
                     continue
                 if person not in participants_usage:
-                    participants_usage[person] = {
-                        "presenter_count": 0,
-                        "journal_count": 0
-                    }
-                if "Presenter" in role_col:
+                    participants_usage[person] = {"presenter_count": 0, "journal_count": 0}
+                if "Presenter" in col:
                     participants_usage[person]["presenter_count"] += 1
                 else:
                     participants_usage[person]["journal_count"] += 1
 
-    # 2) Convert to a list of dicts for DataFrame
     records = []
     for person, usage_dict in participants_usage.items():
-        # Weighted total: 4 points per present, 1 point per journal
         weighted_usage = usage_dict["presenter_count"] * 4 + usage_dict["journal_count"]
         records.append({
             "Name": person,
@@ -290,19 +318,18 @@ else:
     df_scores = pd.DataFrame(records)
 
     if not df_scores.empty:
-        # 3) Min–max normalize to [-1..1] range
+        
+
         min_usage = df_scores["Points"].min()
         max_usage = df_scores["Points"].max()
 
         def calc_normalized_score(x):
             if max_usage == min_usage:
-                # Everyone has the same usage, so just return 0
                 return 0.0
             return 2 * ((x - min_usage) / (max_usage - min_usage)) - 1
 
         df_scores["Score"] = df_scores["Points"].apply(calc_normalized_score).round(2)
 
-        # 4) Color-coding based on Score
         def color_for_score(val):
             if val < -0.5:
                 return "background-color: red"
@@ -311,11 +338,20 @@ else:
             else:
                 return "background-color: yellow"
 
-        # Sort by highest Score, for convenience
         df_scores.sort_values("Score", ascending=False, inplace=True)
 
-        # 5) Display as a styled DataFrame
-        styled_df = df_scores.style.applymap(color_for_score, subset=["Score"]).format({"Score": "{:.2f}"})
-        st.dataframe(styled_df, use_container_width=True)
+        if search_name.strip():
+            df_scores = df_scores[df_scores["Name"].str.contains(search_name, case=False, na=False)]
+
+        styled_df = (
+            df_scores.style
+            .applymap(color_for_score, subset=["Score"])
+            .format({"Score": "{:.2f}"})
+        )
+
+        if not df_scores.empty:
+            st.dataframe(styled_df, use_container_width=True)
+        else:
+            st.info("No matching participants.")
     else:
         st.info("No participants found in the schedule.")
