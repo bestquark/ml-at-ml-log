@@ -107,8 +107,8 @@ if selected_date_str:
         st.warning("No entries found for this date.")
         st.stop()
 
-    # 4. Show info about presenters
-    role_cols = ["Presenter 1", "Presenter 2"]
+    # 4. Show info about presenters/journal
+    role_cols = ["Journal 1", "Journal 2", "Presenter 1", "Presenter 2"]
     role_cols = [col for col in role_cols if col in day_df.columns]
 
     for idx, row in day_df.iterrows():
@@ -222,7 +222,7 @@ else:
 
     # Search by participant name
     search_name = st.text_input("Search by participant name:")
-    role_cols = ["Presenter 1", "Presenter 2"]
+    role_cols = ["Journal 1", "Journal 2", "Presenter 1", "Presenter 2"]
     role_cols = [c for c in role_cols if c in df.columns]
 
     if search_name.strip():
@@ -290,27 +290,27 @@ else:
     st.write("---")
     st.subheader("Participants")
 
-    # Weighted usage for each participant (4 points/presentation)
+    # Weighted usage for each participant (4 points/presentation, 1 point/journal)
     participants_usage = {}
-    for col in ["Presenter 1", "Presenter 2"]:
+    for col in ["Presenter 1", "Presenter 2", "Journal 1", "Journal 2"]:
         if col in df_full.columns:
             for person in df_full[col]:
                 if not person:
                     continue
                 if person not in participants_usage:
-                    participants_usage[person] = {"presenter_count": 0}
+                    participants_usage[person] = {"presenter_count": 0, "journal_count": 0}
                 if "Presenter" in col:
                     participants_usage[person]["presenter_count"] += 1
-                # else:
-                #     participants_usage[person]["journal_count"] += 1
+                else:
+                    participants_usage[person]["journal_count"] += 1
 
     records = []
     for person, usage_dict in participants_usage.items():
-        weighted_usage = usage_dict["presenter_count"] * 4 #+ usage_dict["journal_count"]
+        weighted_usage = usage_dict["presenter_count"] * 4 + usage_dict["journal_count"]
         records.append({
             "Name": person,
             "Presentations": usage_dict["presenter_count"],
-            # "Journals": usage_dict["journal_count"],
+            "Journals": usage_dict["journal_count"],
             "Points": weighted_usage,
         })
 
@@ -337,16 +337,10 @@ else:
             else:
                 return "background-color: yellow"
 
-        df_scores.sort_values("Score", ascending=True, inplace=True)
+        df_scores.sort_values("Score", ascending=False, inplace=True)
 
         if search_name.strip():
             df_scores = df_scores[df_scores["Name"].str.contains(search_name, case=False, na=False)]
-
-        # drop the Points column
-        df_scores.drop(columns=["Points"], inplace=True)
-
-        # drop the presentations column
-        df_scores.drop(columns=["Presentations"], inplace=True)
 
         styled_df = (
             df_scores.style
