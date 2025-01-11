@@ -5,6 +5,8 @@ import base64
 import json
 import os
 
+import functions as fns
+
 # ----- PAGE CONFIG -----
 st.set_page_config(
     page_title="ML@ML Schedule",
@@ -221,6 +223,7 @@ else:
     if hide_past:
         df = df[df["Date"] >= today]
 
+
     # Search by participant name
     search_name = st.text_input("Search by participant name:")
     role_cols = ["Presenter 1", "Presenter 2"]
@@ -239,6 +242,56 @@ else:
         if admin_mode:
             # EDITABLE for admin
             st.info("You are in admin mode. Feel free to edit and save the schedule.")
+
+            if st.button("Add New Row"):
+                # Calculate next Wednesday after the last date in df
+                if not df.empty and "Date" in df.columns:
+                    last_date = df["Date"].max()
+                else:
+                    last_date = today
+                next_wed = fns.get_next_wednesday(last_date)
+
+                # Create a new row with default values
+                new_row = {}
+                for col in df.columns:
+                    if col == "Date":
+                        new_row[col] = next_wed
+                    elif "Presenter" in col:
+                        new_row[col] = "EMPTY"
+                    else:
+                        new_row[col] = ""
+                # Append the new row to the dataframe
+                # df = df.append(new_row, ignore_index=True)
+                # st.success(f"Added new row for date: {next_wed}")
+                new_row_df = pd.DataFrame([new_row])
+                df = pd.concat([df, new_row_df], ignore_index=True)
+
+                if "Date" in df.columns:
+                    df["Date"] = df["Date"].astype(str)
+                df.to_csv("schedule.csv", index=False)
+                st.success(f"Added new row for date: {next_wed}")
+                st.rerun()
+            
+            # ---- Delete Row Option ----
+             # Provide a dropdown or selectbox to choose a row to delete
+            if not df.empty:
+                # Create a unique identifier for each row, e.g., using the index and date
+                df = df.reset_index(drop=True)  # ensure proper indexing
+                row_labels = df.apply(lambda row: f"Date: {row['Date']}, Presenters: {row['Presenter 1']} & {row['Presenter 2']}", axis=1).tolist()
+
+                selected_row = st.selectbox("Select a row to delete:", options=row_labels)
+                if st.button("Delete Selected Row"):
+                    # Extract the index from the selected label
+                    selected_index = int(selected_row.split(":")[0].split()[1])
+                    df = df.drop(index=selected_index).reset_index(drop=True)
+                    
+                    # Save the updated DataFrame to CSV after deletion
+                    if "Date" in df.columns:
+                        df["Date"] = df["Date"].astype(str)
+                    df.to_csv("schedule.csv", index=False)
+                    st.success(f"Deleted row at index {selected_index}.")
+                    st.rerun()
+   
             edited_df = st.data_editor(
                 df,
                 num_rows="fixed",
@@ -270,9 +323,13 @@ else:
             # 1) Create a column with just the link (relative query param)
             df["DetailsLink"] = df["Date"].apply(lambda d: f"?date={d.strftime('%Y-%m-%d')}")
 
+            # Apply styling to Presenter columns to highlight "EMPTY" cells
+            style_cols = [col for col in ["Presenter 1", "Presenter 2"] if col in df.columns]
+            styled_df = df.style.applymap(fns.highlight_empty, subset=style_cols)
+
             # 2) Show the DataFrame with LinkColumn
             st.dataframe(
-                df,
+                styled_df,
                 column_config={
                     "Date": st.column_config.DateColumn("Date"),
                     "DetailsLink": st.column_config.LinkColumn(
@@ -291,35 +348,40 @@ else:
     st.write("---")
     st.subheader("Participants")
 
+    # Step 1: Read valid participants from participants.txt
+    try:
+        with open("participants.txt", "r") as f:
+            valid_participants = [line.strip() for line in f if line.strip()]
+    except FileNotFoundError:
+        valid_participants = []
+        st.warning("participants.txt not found. No valid participants loaded.")
+
+    # Initialize usage dictionary for all valid participants with 0 counts
+    participants_usage = {person: {"presenter_count": 0} for person in valid_participants}
+
     # Weighted usage for each participant (4 points/presentation)
-    participants_usage = {}
     for col in ["Presenter 1", "Presenter 2"]:
         if col in df_full.columns:
             for person in df_full[col]:
-                if not person:
+                # Only consider non-empty names that are in the list of valid participants
+                if not person or person not in participants_usage:
                     continue
-                if person not in participants_usage:
-                    participants_usage[person] = {"presenter_count": 0}
-                if "Presenter" in col:
-                    participants_usage[person]["presenter_count"] += 1
-                # else:
-                #     participants_usage[person]["journal_count"] += 1
+                participants_usage[person]["presenter_count"] += 1
 
+    # Build records list from all valid participants
     records = []
-    for person, usage_dict in participants_usage.items():
-        weighted_usage = usage_dict["presenter_count"] * 4 #+ usage_dict["journal_count"]
+    for person in valid_participants:
+        usage_dict = participants_usage.get(person, {"presenter_count": 0})
+        weighted_usage = usage_dict["presenter_count"] * 4  # Add journal points if needed
         records.append({
             "Name": person,
             "Presentations": usage_dict["presenter_count"],
-            # "Journals": usage_dict["journal_count"],
             "Points": weighted_usage,
         })
 
     df_scores = pd.DataFrame(records)
 
     if not df_scores.empty:
-        
-
         min_usage = df_scores["Points"].min()
         max_usage = df_scores["Points"].max()
 
@@ -343,11 +405,8 @@ else:
         if search_name.strip():
             df_scores = df_scores[df_scores["Name"].str.contains(search_name, case=False, na=False)]
 
-        # drop the Points column
-        df_scores.drop(columns=["Points"], inplace=True)
-
-        # drop the presentations column
-        df_scores.drop(columns=["Presentations"], inplace=True)
+        # Remove unnecessary columns before styling
+        df_scores.drop(columns=["Points", "Presentations"], inplace=True)
 
         styled_df = (
             df_scores.style
@@ -361,3 +420,44 @@ else:
             st.info("No matching participants.")
     else:
         st.info("No participants found in the schedule.")
+
+    if admin_mode:
+        st.subheader("Manage Participants")
+
+        # Read current participants from file
+        try:
+            with open("participants.txt", "r") as f:
+                participants = [line.strip() for line in f if line.strip()]
+        except FileNotFoundError:
+            participants = []
+            st.warning("participants.txt not found. Starting with an empty list.")
+
+        # Add Participant Section
+        new_participant = st.text_input("Add participant:", key="add_input")
+        if st.button("Add Participant"):
+            if new_participant:
+                if new_participant not in participants:
+                    participants.append(new_participant)
+                    with open("participants.txt", "w") as f:
+                        f.write("\n".join(participants) + "\n")
+                    st.success(f"Added participant: {new_participant}")
+                    st.rerun()
+                else:
+                    st.warning(f"{new_participant} is already in the list.")
+            else:
+                st.warning("Please enter a name to add.")
+
+        # Remove Participant Section using a dropdown
+        if participants:  # Only show dropdown if there are participants
+            remove_participant = st.selectbox("Select participant to remove:", options=participants, key="remove_select")
+            if st.button("Remove Participant"):
+                if remove_participant in participants:
+                    participants.remove(remove_participant)
+                    with open("participants.txt", "w") as f:
+                        f.write("\n".join(participants) + "\n")
+                    st.success(f"Removed participant: {remove_participant}")
+                    st.rerun()
+                else:
+                    st.warning(f"{remove_participant} not found in the list.")
+        else:
+            st.info("No participants available to remove.")

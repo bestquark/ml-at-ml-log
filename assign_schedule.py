@@ -5,12 +5,8 @@ import random
 seed = 0
 random.seed(seed)
 
-names = [
-    "Abdul", "Alastair", "Alessandro", "Andres", "Austin",
-    "Changhyeok", "Cher-Tian", "Ella", "Gary", "Jackie", "Jorge",
-    "Juan", "Luca", "Luis", "Mahdi", "Marko", "Marta", "Pan",
-    "Samantha", "Shi Xuan", "Yuchi (Allan)", "Yuma", "Zijian"
-]
+with open("names.txt", "r") as file:
+    names = [line.strip() for line in file]
 
 def get_next_n_wednesdays(n=16):
     """Return a list of the next n Wednesday dates (as strings)."""
