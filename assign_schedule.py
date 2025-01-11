@@ -135,7 +135,7 @@ def pick_presenters(
 if __name__ == "__main__":
     # Example usage:
     fixed_assignments = {
-        0: {"presenters": ["Gary", "Cher-Tian"]},
+        0: {"presenters": ["Cher-Tian", "Gary"]},
     }
 
     assign_roles(

@@ -350,7 +350,7 @@ else:
 
         styled_df = (
             df_scores.style
-            .applymap(color_for_score, subset=["Score"])
+            .map(color_for_score, subset=["Score"])
             .format({"Score": "{:.2f}"})
         )
 
