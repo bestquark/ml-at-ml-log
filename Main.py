@@ -193,7 +193,8 @@ else:
     # For demonstration, let's have a simple 'admin' text input in the sidebar
     admin_mode = False
     admin_password = st.sidebar.text_input("Admin password:", type="password")
-    if admin_password == "1234":
+    pw = st.secrets["admin_password"]
+    if admin_password == pw:
         admin_mode = True
 
     # Load schedule CSV
