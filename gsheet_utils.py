@@ -1,4 +1,5 @@
 import streamlit as st
+from datetime import datetime
 
 import gspread
 from google.oauth2.service_account import Credentials
@@ -165,7 +166,7 @@ def generate_presentation(date, presenter1, presenter2, template_id, folder_id=N
                     'text': '{{DATE}}',
                     'matchCase': True
                 },
-                'replaceText': date
+                'replaceText': datetime.strptime(date, "%Y-%m-%d").strftime("%b %d %Y") 
             }
         }
         # Add additional requests here for other placeholders if needed.
