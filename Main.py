@@ -6,6 +6,33 @@ import json
 import os
 
 import functions as fns
+import gsheet_utils as gs
+
+@st.cache_data(ttl=300)  # Cache for 5 minutes by default
+def load_schedule_data():
+    return gs.get_schedule_df()
+
+@st.cache_data(ttl=300)
+def load_participants_data():
+    return gs.get_participants_list()
+
+@st.cache_data(ttl=300)
+def load_materials_data():
+    ws = gs.get_sheet("Materials")
+    all_records = ws.get_all_records()  
+    return all_records
+
+def refresh_main():
+    # Clear cached data to force fresh reads on next call
+    load_schedule_data.clear()
+    load_participants_data.clear()
+    st.rerun()
+
+def refresh_detail():
+    # Clear cached data to force fresh reads on next call
+    load_schedule_data.clear()
+    load_materials_data.clear()
+    st.rerun()
 
 # ----- PAGE CONFIG -----
 st.set_page_config(
@@ -57,20 +84,20 @@ selected_date_str = st.query_params.get("date", "")
 ########################################
 # UTILITY FUNCTIONS FOR MATERIALS
 ########################################
-DATA_FILE = "materials_data.json"
+# DATA_FILE = "materials_data.json"
 
-def load_materials_data():
-    """Load the materials from a JSON file, or return an empty dict if it doesn't exist."""
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    else:
-        return {}
+# def load_materials_data():
+#     """Load the materials from a JSON file, or return an empty dict if it doesn't exist."""
+#     if os.path.exists(DATA_FILE):
+#         with open(DATA_FILE, "r", encoding="utf-8") as f:
+#             return json.load(f)
+#     else:
+#         return {}
 
-def save_materials_data(data):
-    """Write the entire materials structure to JSON."""
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
+# def save_materials_data(data):
+#     """Write the entire materials structure to JSON."""
+#     with open(DATA_FILE, "w", encoding="utf-8") as f:
+#         json.dump(data, f, indent=2)
 
 ########################################
 # DETAIL VIEW
@@ -85,11 +112,16 @@ if selected_date_str:
 
     st.title(f"Details for {selected_date_str}")
 
+    # refresh button
+    # if st.button("Refresh"):
+    #     # Clear cached data to force fresh reads on next call
+    #     refresh_main()
+
     # 2. Load the schedule
     try:
-        df = pd.read_csv("schedule.csv")
+        df = load_schedule_data()
     except FileNotFoundError:
-        st.error("Schedule CSV not found! Please run 'assign_schedule.py' first.")
+        st.error("Schedule not found!")
         st.stop()
 
     df.fillna("", inplace=True)
@@ -121,69 +153,79 @@ if selected_date_str:
 
     # 5. Materials / Documents Section (persisted store via JSON)
     st.write("---")
-    st.subheader("Materials / Documents")
+    st.subheader("Details")
 
-    # 1) Load JSON into session_state if not already there
-    if "materials_data" not in st.session_state:
-        st.session_state["materials_data"] = load_materials_data()
+    ws = gs.get_sheet("Materials")
+    # Load cached materials data
+    all_records = load_materials_data()
 
-    # If this date doesn't exist in the dictionary, initialize a list
-    if selected_date_str not in st.session_state["materials_data"]:
-        st.session_state["materials_data"][selected_date_str] = []
+    # Filter records for the selected date and keep track of row indices
+    target_rows = []  # list of tuples (row_index, material_record)
+    for idx, record in enumerate(all_records, start=2):  # start=2 to account for header row
+        # Assuming date is stored as a string in the same format as selected_date_str
+        if str(record.get("Date")) == selected_date_str:
+            target_rows.append((idx, record))
 
-    materials_data = st.session_state["materials_data"][selected_date_str]
+    # Display materials for the selected date
+    if target_rows:
+        for row_idx, mat in target_rows:
+            st.write(f"#### **{mat['Title']}**")
+            if mat.get("Description"):
+                st.write(f"Description: {mat['Description']}")
 
-    # 3. Show existing materials
-    if materials_data:
-        st.write("#### Existing Materials:")
-        for i, mat in enumerate(materials_data):
-            st.write(f"**{i+1}. {mat['title']}**")
-            
-            # If there's a PDF, show a "Download PDF" link/button
-            if "pdf_data_b64" in mat:
-                pdf_name = mat["pdf_name"]
-                pdf_b64 = mat["pdf_data_b64"]
-                # Create a download link using base64
-                href = f'<a href="data:application/octet-stream;base64,{pdf_b64}" download="{pdf_name}">Download PDF</a>'
+            # Display PDF link if available
+            if mat.get("PDF_Link"):
+                drive_link = mat["PDF_Link"]
+                href = f'<a href="{drive_link}" target="_blank">View PDF</a>'
                 st.markdown(href, unsafe_allow_html=True)
 
-            # Remove button
-            if st.button(f"Remove #{i+1}", key=f"remove_{i}"):
-                materials_data.pop(i)
-                # Save updated data to JSON
-                save_materials_data(st.session_state["materials_data"])
-                st.success("Material removed.")
-                st.rerun()
+            # Remove button for this material
+            if st.button(f"Remove document", key=f"remove_{row_idx}"):
+                ws.delete_rows(row_idx)
+                refresh_detail()  # Rerun to refresh the list after deletion
+                st.success(f"Removed material: {mat['Title']}")    
+                st.rerun()  # Rerun to refresh the list after deletion
     else:
         st.write("No materials yet.")
 
-    # 1. Input fields for Title/Description
+    st.write("---")
+    st.subheader("Add New Material")
+    # Input fields for new material
     new_title = st.text_input("Document Title or Link:")
-
-    # 2. Optional PDF Upload
+    new_description = st.text_area("Description (optional):")  # New description input
     pdf_file = st.file_uploader("Upload a PDF (optional):", type=["pdf"])
 
-    if st.button("Add Material"):
+    MLATML_FOLDER_ID = "1EWEfieDpRW1jMSDkcwLxFc9EWAAyKeT1" 
+
+    if st.button("Upload"):
         if not new_title.strip():
             st.warning("Please enter a valid document title/link.")
         else:
-            material_entry = {"title": new_title.strip()}
+            pdf_name = ""
+            drive_link = ""
             if pdf_file is not None:
-                # Convert PDF bytes to base64
                 pdf_bytes = pdf_file.read()
-                b64_pdf = base64.b64encode(pdf_bytes).decode("utf-8")
-                material_entry["pdf_name"] = pdf_file.name
-                material_entry["pdf_data_b64"] = b64_pdf
-            # Append to the date-specific list
-            materials_data.append(material_entry)
-            save_materials_data(st.session_state["materials_data"])
+                pdf_name = pdf_file.name
+                mime_type = "application/pdf"
+                _, drive_link = gs.upload_file_to_drive(pdf_name, pdf_bytes, mime_type, parent_folder_id=MLATML_FOLDER_ID)
+            
+            # Pass the description to add_material
+            gs.add_material(
+                selected_date_str,
+                new_title.strip(),
+                new_description.strip(),  # Pass the description here
+                pdf_name,
+                drive_link
+            )
+
+            refresh_detail()  # Rerun to refresh the list after addition
             st.success("Material added successfully.")
             st.rerun()
 
     st.write("---")
-    # 6. “Back to Schedule” button: clear 'date' query param
+    # "Back to Schedule" button
     if st.button("Back to Schedule"):
-        st.query_params.clear()  # Removes all query params
+        st.query_params.clear()
         st.rerun()
 
 ########################################
@@ -201,9 +243,9 @@ else:
 
     # Load schedule CSV
     try:
-        df_full = pd.read_csv("schedule.csv")
+        df_full = load_schedule_data()
     except FileNotFoundError:
-        st.error("Schedule CSV not found! Please run 'assign_schedule.py' first.")
+        st.error("Schedule not found!")
         st.stop()
 
     df_full.fillna("", inplace=True)
@@ -218,11 +260,28 @@ else:
     df = df_full.copy()
 
     # Hide past dates if desired
-    hide_past = st.checkbox("Hide past dates", value=True)
-    today = datetime.date.today()
-    if hide_past:
-        df = df[df["Date"] >= today]
+    # hide_past = st.checkbox("Hide past dates", value=True)
+    # today = datetime.date.today()
+    # if hide_past:
+    #     df = df[df["Date"] >= today]
 
+    col1, col2 = st.columns([2, 1])  # Adjust ratios as needed
+    with col1:
+    # Hide past dates if desired
+        hide_past = st.checkbox("Hide past dates", value=True)
+        today = datetime.date.today()
+        if hide_past:
+            df = df[df["Date"] >= today]
+
+    with col2:
+        # Refresh button placed side by side with the checkbox
+        if st.button("Refresh Data"):
+            refresh_main()
+
+    # hide_past = st.checkbox("Hide past dates", value=True)
+    # today = datetime.date.today()
+    # if hide_past:
+    #     df = df[df["Date"] >= today]
 
     # Search by participant name
     search_name = st.text_input("Search by participant name:")
@@ -268,7 +327,8 @@ else:
 
                 if "Date" in df.columns:
                     df["Date"] = df["Date"].astype(str)
-                df.to_csv("schedule.csv", index=False)
+                gs.save_schedule_df(df)
+                # refresh_main()
                 st.success(f"Added new row for date: {next_wed}")
                 st.rerun()
             
@@ -288,7 +348,8 @@ else:
                     # Save the updated DataFrame to CSV after deletion
                     if "Date" in df.columns:
                         df["Date"] = df["Date"].astype(str)
-                    df.to_csv("schedule.csv", index=False)
+                    gs.save_schedule_df(df)
+                    # refresh_main()   
                     st.success(f"Deleted row at index {selected_index}.")
                     st.rerun()
    
@@ -313,8 +374,9 @@ else:
                 # Convert date column back to string for CSV
                 if "Date" in edited_df.columns:
                     edited_df["Date"] = edited_df["Date"].astype(str)
-                edited_df.to_csv("schedule.csv", index=False)
-                st.success("Schedule updated and saved to 'schedule.csv'!")
+                gs.save_schedule_df(edited_df)
+                # refresh_main()
+                st.success("Schedule updated and saved!")
         else:
             # READ-ONLY for non-admin
             st.write("You are **not** in admin mode, schedule is read-only.")
@@ -325,7 +387,7 @@ else:
 
             # Apply styling to Presenter columns to highlight "EMPTY" cells
             style_cols = [col for col in ["Presenter 1", "Presenter 2"] if col in df.columns]
-            styled_df = df.style.applymap(fns.highlight_empty, subset=style_cols)
+            styled_df = df.style.map(fns.highlight_empty, subset=style_cols)
 
             # 2) Show the DataFrame with LinkColumn
             st.dataframe(
@@ -349,12 +411,17 @@ else:
     st.subheader("Participants")
 
     # Step 1: Read valid participants from participants.txt
+    # try:
+    #     with open("participants.txt", "r") as f:
+    #         valid_participants = [line.strip() for line in f if line.strip()]
+    # except FileNotFoundError:
+    #     valid_participants = []
+    #     st.warning("participants.txt not found. No valid participants loaded.")
     try:
-        with open("participants.txt", "r") as f:
-            valid_participants = [line.strip() for line in f if line.strip()]
-    except FileNotFoundError:
-        valid_participants = []
-        st.warning("participants.txt not found. No valid participants loaded.")
+        valid_participants = load_participants_data()
+    except Exception as e:
+        st.error(f"Error loading participants: {e}")
+        st.stop()
 
     # Initialize usage dictionary for all valid participants with 0 counts
     participants_usage = {person: {"presenter_count": 0} for person in valid_participants}
@@ -425,12 +492,18 @@ else:
         st.subheader("Manage Participants")
 
         # Read current participants from file
+        # try:
+        #     with open("participants.txt", "r") as f:
+        #         participants = [line.strip() for line in f if line.strip()]
+        # except FileNotFoundError:
+        #     participants = []
+        #     st.warning("participants.txt not found. Starting with an empty list.")
+
         try:
-            with open("participants.txt", "r") as f:
-                participants = [line.strip() for line in f if line.strip()]
-        except FileNotFoundError:
-            participants = []
-            st.warning("participants.txt not found. Starting with an empty list.")
+            participants = load_participants_data()
+        except Exception as e:
+            st.error(f"Error loading participants: {e}")
+            st.stop()
 
         # Add Participant Section
         new_participant = st.text_input("Add participant:", key="add_input")
@@ -438,9 +511,11 @@ else:
             if new_participant:
                 if new_participant not in participants:
                     participants.append(new_participant)
-                    with open("participants.txt", "w") as f:
-                        f.write("\n".join(participants) + "\n")
+                    # with open("participants.txt", "w") as f:
+                    #     f.write("\n".join(participants) + "\n")
+                    gs.save_participants_list(participants)
                     st.success(f"Added participant: {new_participant}")
+                    # refresh_main()
                     st.rerun()
                 else:
                     st.warning(f"{new_participant} is already in the list.")
@@ -453,9 +528,11 @@ else:
             if st.button("Remove Participant"):
                 if remove_participant in participants:
                     participants.remove(remove_participant)
-                    with open("participants.txt", "w") as f:
-                        f.write("\n".join(participants) + "\n")
+                    # with open("participants.txt", "w") as f:
+                    #     f.write("\n".join(participants) + "\n")
+                    gs.save_participants_list(participants)
                     st.success(f"Removed participant: {remove_participant}")
+                    # refresh_main()
                     st.rerun()
                 else:
                     st.warning(f"{remove_participant} not found in the list.")
