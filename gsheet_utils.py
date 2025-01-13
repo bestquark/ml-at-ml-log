@@ -6,7 +6,11 @@ from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaInMemoryUpload
 
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive.file"]
+SCOPES = [
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/presentations",
+    "https://www.googleapis.com/auth/spreadsheets"
+]
 
 def get_gspread_client():
     # Load service account info from Streamlit secrets
@@ -31,6 +35,7 @@ def get_schedule_df():
     if 'Date' in df.columns:
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
     return df
+
 
 def save_schedule_df(df):
     ws = get_sheet("Schedule")
@@ -107,3 +112,98 @@ def get_all_materials():
             }
             materials_by_date[date].append(material)
     return materials_by_date
+
+
+def get_slides_service():
+    credentials = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"], scopes=SCOPES)
+    return build('slides', 'v1', credentials=credentials)
+
+def generate_presentation(date, presenter1, presenter2, template_id, folder_id=None):
+    drive_service = get_drive_service()
+    slides_service = get_slides_service()
+    
+    # 1. Copy the template presentation
+    copy_body = {'name': f"{date} ML Subgroup Meeting"}
+    copied_file = drive_service.files().copy(fileId=template_id, body=copy_body).execute()
+    presentation_id = copied_file.get('id')
+    
+    # Optionally move the copied file to a specific folder
+    if folder_id:
+        # Retrieve the existing parents and then update
+        file = drive_service.files().get(fileId=presentation_id, fields='parents').execute()
+        previous_parents = ",".join(file.get('parents'))
+        drive_service.files().update(
+            fileId=presentation_id,
+            addParents=folder_id,
+            removeParents=previous_parents,
+            fields='id, parents'
+        ).execute()
+    
+    requests = [
+        {
+            'replaceAllText': {
+                'containsText': {
+                    'text': '{{PRESENTER1}}',
+                    'matchCase': True
+                },
+                'replaceText': presenter1
+            }
+        },
+        {
+            'replaceAllText': {
+                'containsText': {
+                    'text': '{{PRESENTER2}}',
+                    'matchCase': True
+                },
+                'replaceText': presenter2
+            }
+        },
+        {
+            'replaceAllText': {
+                'containsText': {
+                    'text': '{{DATE}}',
+                    'matchCase': True
+                },
+                'replaceText': date
+            }
+        }
+        # Add additional requests here for other placeholders if needed.
+    ]
+    
+    # Execute the batchUpdate request
+    body = {'requests': requests}
+    response = slides_service.presentations().batchUpdate(
+        presentationId=presentation_id, body=body).execute()
+    
+    # Return presentation details (like URL) if needed
+    presentation_url = f"https://docs.google.com/presentation/d/{presentation_id}/edit"
+    return presentation_id, presentation_url
+
+def get_all_slides():
+    """Fetch all slides data from the 'Slides' worksheet using gspread."""
+    try:
+        ws = get_sheet("Slides")
+        # Get all records as a list of dictionaries
+        records = ws.get_all_records()
+        return records
+    except Exception as e:
+        st.error(f"Error fetching slides data: {e}")
+        return []
+
+def find_slide(date_str):
+    """Find if a slide already exists for the given date using gspread."""
+    slides_data = get_all_slides()
+    for slide in slides_data:
+        if slide.get("Date") == date_str:
+            return slide
+    return None
+
+def add_slide_entry(date_str, presentation_id, presentation_link):
+    """Add a new slide entry to the 'Slides' worksheet using gspread."""
+    try:
+        ws = get_sheet("Slides")
+        new_row = [date_str, presentation_id, presentation_link]
+        ws.append_row(new_row)
+    except Exception as e:
+        st.error(f"Error adding slide entry: {e}")

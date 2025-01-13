@@ -22,6 +22,11 @@ def load_materials_data():
     all_records = ws.get_all_records()  
     return all_records
 
+@st.cache_data(ttl=300)
+def load_slides_data(selected_date_str):
+    existing_slide = gs.find_slide(selected_date_str)
+    return existing_slide
+
 def refresh_main():
     # Clear cached data to force fresh reads on next call
     load_schedule_data.clear()
@@ -33,7 +38,7 @@ def refresh_detail():
     load_schedule_data.clear()
     load_materials_data.clear()
     st.rerun()
-
+    
 # ----- PAGE CONFIG -----
 st.set_page_config(
     page_title="ML@ML Schedule",
@@ -102,6 +107,10 @@ selected_date_str = st.query_params.get("date", "")
 ########################################
 # DETAIL VIEW
 ########################################
+
+SLIDES_TEMPLATE_ID="1XE_EB95lL4YwN1E7J6BgXpGzkTSpyTV021Fexqns4dw"
+MLATML_SLIDES_FOLDER_ID="13My4DkbVC_LdHt5X91Od4MWtvo8X5BnG"
+ 
 if selected_date_str:
     # 1. Convert to date object if possible
     try:
@@ -110,14 +119,9 @@ if selected_date_str:
         st.error("Invalid date in URL. Please go back to the schedule.")
         st.stop()
 
-    st.title(f"Details for {selected_date_str}")
+    st.title(f"ML Subgroup Meeting")
+    # st.title("")
 
-    # refresh button
-    # if st.button("Refresh"):
-    #     # Clear cached data to force fresh reads on next call
-    #     refresh_main()
-
-    # 2. Load the schedule
     try:
         df = load_schedule_data()
     except FileNotFoundError:
@@ -144,22 +148,45 @@ if selected_date_str:
     # 4. Show info about presenters
     role_cols = ["Presenter 1", "Presenter 2"]
     role_cols = [col for col in role_cols if col in day_df.columns]
-
+    ps = []
     for idx, row in day_df.iterrows():
-        st.write("### Schedule")
+        st.write(f"### Schedule {selected_date_str}")
         for col in role_cols:
             if row[col]:
+                ps.append(row[col])
                 st.write(f"- **{col}**: {row[col]}")
+
+    existing_slide = load_slides_data(selected_date_str)
+    # st.write(f"{existing_slide}")
+
+    if existing_slide:
+        st.markdown(f"##### [View Slides]({existing_slide['Presentation_Link']})")
+    else:
+        if st.button("Generate slides", key=f"main_slides_{idx}"):
+            try:
+                from googleapiclient.errors import HttpError
+                drive_service = gs.get_drive_service()
+                file = drive_service.files().get(fileId=SLIDES_TEMPLATE_ID).execute()
+            except HttpError as e:
+                st.error(f"Template file not found or access denied: {e}")
+
+            presentation_id, presentation_link = gs.generate_presentation(
+                selected_date_str, ps[0], ps[1], SLIDES_TEMPLATE_ID, folder_id=MLATML_SLIDES_FOLDER_ID
+            )
+            if presentation_id and presentation_link:
+                # Save slide entry using date, presentation ID, and link
+                gs.add_slide_entry(selected_date_str, presentation_id, presentation_link)
+                st.success("Slides generated successfully.")
+                load_slides_data.clear()  
+                st.rerun()
 
     # 5. Materials / Documents Section (persisted store via JSON)
     st.write("---")
     st.subheader("Details")
 
     ws = gs.get_sheet("Materials")
-    # Load cached materials data
     all_records = load_materials_data()
 
-    # Filter records for the selected date and keep track of row indices
     target_rows = []  # list of tuples (row_index, material_record)
     for idx, record in enumerate(all_records, start=2):  # start=2 to account for header row
         # Assuming date is stored as a string in the same format as selected_date_str
@@ -169,7 +196,7 @@ if selected_date_str:
     # Display materials for the selected date
     if target_rows:
         for row_idx, mat in target_rows:
-            st.write(f"#### **{mat['Title']}**")
+            st.write(f"##### **{mat['Title']}**")
             if mat.get("Description"):
                 st.write(f"Description: {mat['Description']}")
 
