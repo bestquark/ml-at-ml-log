@@ -2,11 +2,12 @@ import datetime
 import csv
 import random
 
+import gsheet_utils as gs
+
 seed = 0
 random.seed(seed)
 
-with open("names.txt", "r") as file:
-    names = [line.strip() for line in file]
+names = gs.get_participants_list()
 
 def get_next_n_wednesdays(n=16):
     """Return a list of the next n Wednesday dates (as strings)."""
