@@ -355,28 +355,38 @@ else:
                 if "Date" in df.columns:
                     df["Date"] = df["Date"].astype(str)
                 gs.save_schedule_df(df)
-                # refresh_main()
+                refresh_main()
                 st.success(f"Added new row for date: {next_wed}")
                 st.rerun()
             
             # ---- Delete Row Option ----
              # Provide a dropdown or selectbox to choose a row to delete
             if not df.empty:
-                # Create a unique identifier for each row, e.g., using the index and date
-                df = df.reset_index(drop=True)  # ensure proper indexing
-                row_labels = df.apply(lambda row: f"Date: {row['Date']}, Presenters: {row['Presenter 1']} & {row['Presenter 2']}", axis=1).tolist()
+                # Reset index to ensure proper indexing
+                df = df.reset_index(drop=True)
 
-                selected_row = st.selectbox("Select a row to delete:", options=row_labels)
+                # Create a dictionary mapping each row label to its index
+                row_dict = {
+                    f"Date: {row['Date']}, Presenters: {row['Presenter 1']} & {row['Presenter 2']}": idx
+                    for idx, row in df.iterrows()
+                }
+
+                # Create a selectbox with labels
+                selected_label = st.selectbox("Select a row to delete:", options=list(row_dict.keys()))
+
                 if st.button("Delete Selected Row"):
-                    # Extract the index from the selected label
-                    selected_index = int(selected_row.split(":")[0].split()[1])
+                    # Get the corresponding index for the selected label
+                    selected_index = row_dict[selected_label]
+
+                    # Drop the row and reset the index
                     df = df.drop(index=selected_index).reset_index(drop=True)
-                    
-                    # Save the updated DataFrame to CSV after deletion
+
+                    # Convert date column back to string if necessary
                     if "Date" in df.columns:
                         df["Date"] = df["Date"].astype(str)
+
                     gs.save_schedule_df(df)
-                    # refresh_main()   
+                    refresh_main()   
                     st.success(f"Deleted row at index {selected_index}.")
                     st.rerun()
    
