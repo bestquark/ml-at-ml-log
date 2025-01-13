@@ -182,7 +182,7 @@ if selected_date_str:
 
     # 5. Materials / Documents Section (persisted store via JSON)
     st.write("---")
-    st.subheader("Details")
+    st.subheader("Documents")
 
     ws = gs.get_sheet("Materials")
     all_records = load_materials_data()
@@ -213,11 +213,11 @@ if selected_date_str:
                 st.success(f"Removed material: {mat['Title']}")    
                 st.rerun()  # Rerun to refresh the list after deletion
     else:
-        st.write("No materials yet.")
+        st.write("No documents yet.")
 
     st.write("---")
-    st.subheader("Add New Material")
-    # Input fields for new material
+    st.subheader("Add New Document")
+    # Input fields for new document
     new_title = st.text_input("Document Title or Link:")
     new_description = st.text_area("Description (optional):")  # New description input
     pdf_file = st.file_uploader("Upload a PDF (optional):", type=["pdf"])
