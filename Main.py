@@ -159,26 +159,34 @@ if selected_date_str:
     existing_slide = load_slides_data(selected_date_str)
     # st.write(f"{existing_slide}")
 
-    if existing_slide:
-        st.markdown(f"##### [View Slides]({existing_slide['Presentation_Link']})")
-    else:
-        if st.button("Generate slides", key=f"main_slides_{idx}"):
-            try:
-                from googleapiclient.errors import HttpError
-                drive_service = gs.get_drive_service()
-                file = drive_service.files().get(fileId=SLIDES_TEMPLATE_ID).execute()
-            except HttpError as e:
-                st.error(f"Template file not found or access denied: {e}")
+    # col1, col2, _, _ = st.columns(4)
+    col1, col2 = st.columns([0.2, 1])
 
-            presentation_id, presentation_link = gs.generate_presentation(
-                selected_date_str, ps[0], ps[1], SLIDES_TEMPLATE_ID, folder_id=MLATML_SLIDES_FOLDER_ID
-            )
-            if presentation_id and presentation_link:
-                # Save slide entry using date, presentation ID, and link
-                gs.add_slide_entry(selected_date_str, presentation_id, presentation_link)
-                st.success("Slides generated successfully.")
-                load_slides_data.clear()  
-                st.rerun()
+    with col1:
+        if existing_slide:
+            # st.markdown(f"##### [View Slides]({existing_slide['Presentation_Link']})")
+            st.link_button("View Slides", existing_slide["Presentation_Link"])
+        else:
+            if st.button("Make Slides", key=f"main_slides_{idx}"):
+                try:
+                    from googleapiclient.errors import HttpError
+                    drive_service = gs.get_drive_service()
+                    file = drive_service.files().get(fileId=SLIDES_TEMPLATE_ID).execute()
+                except HttpError as e:
+                    st.error(f"Template file not found or access denied: {e}")
+
+                presentation_id, presentation_link = gs.generate_presentation(
+                    selected_date_str, ps[0], ps[1], SLIDES_TEMPLATE_ID, folder_id=MLATML_SLIDES_FOLDER_ID
+                )
+                if presentation_id and presentation_link:
+                    # Save slide entry using date, presentation ID, and link
+                    gs.add_slide_entry(selected_date_str, presentation_id, presentation_link)
+                    st.success("Slides generated successfully.")
+                    load_slides_data.clear()  
+                    st.rerun()
+    
+    with col2:
+        st.link_button("Join Zoom", "https://utoronto.zoom.us/j/83513538471")
 
     # 5. Materials / Documents Section (persisted store via JSON)
     st.write("---")
