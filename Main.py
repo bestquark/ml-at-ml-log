@@ -8,7 +8,13 @@ import os
 import functions as fns
 import gsheet_utils as gs
 
-@st.cache_data(ttl=300)  # Cache for 5 minutes by default
+MLATML_FOLDER_ID="1EWEfieDpRW1jMSDkcwLxFc9EWAAyKeT1" # Folder ID for documents
+MLATML_SLIDES_FOLDER_ID="13My4DkbVC_LdHt5X91Od4MWtvo8X5BnG" # Folder ID for Slides
+
+SLIDES_TEMPLATE_ID="1XE_EB95lL4YwN1E7J6BgXpGzkTSpyTV021Fexqns4dw" # Template Slide ID
+ZOOM_LINK="https://utoronto.zoom.us/j/83513538471"
+
+@st.cache_data(ttl=300)  
 def load_schedule_data():
     return gs.get_schedule_df()
 
@@ -28,13 +34,11 @@ def load_slides_data(selected_date_str):
     return existing_slide
 
 def refresh_main():
-    # Clear cached data to force fresh reads on next call
     load_schedule_data.clear()
     load_participants_data.clear()
     st.rerun()
 
 def refresh_detail():
-    # Clear cached data to force fresh reads on next call
     load_schedule_data.clear()
     load_materials_data.clear()
     st.rerun()
@@ -86,30 +90,11 @@ with top_container:
 # ----- GET QUERY PARAMS -----
 selected_date_str = st.query_params.get("date", "")
 
-########################################
-# UTILITY FUNCTIONS FOR MATERIALS
-########################################
-# DATA_FILE = "materials_data.json"
-
-# def load_materials_data():
-#     """Load the materials from a JSON file, or return an empty dict if it doesn't exist."""
-#     if os.path.exists(DATA_FILE):
-#         with open(DATA_FILE, "r", encoding="utf-8") as f:
-#             return json.load(f)
-#     else:
-#         return {}
-
-# def save_materials_data(data):
-#     """Write the entire materials structure to JSON."""
-#     with open(DATA_FILE, "w", encoding="utf-8") as f:
-#         json.dump(data, f, indent=2)
 
 ########################################
 # DETAIL VIEW
 ########################################
 
-SLIDES_TEMPLATE_ID="1XE_EB95lL4YwN1E7J6BgXpGzkTSpyTV021Fexqns4dw"
-MLATML_SLIDES_FOLDER_ID="13My4DkbVC_LdHt5X91Od4MWtvo8X5BnG"
  
 if selected_date_str:
     # 1. Convert to date object if possible
@@ -186,7 +171,7 @@ if selected_date_str:
                     st.rerun()
     
     with col2:
-        st.link_button("Join Zoom", "https://utoronto.zoom.us/j/83513538471")
+        st.link_button("Join Zoom", ZOOM_LINK)
 
     # 5. Materials / Documents Section (persisted store via JSON)
     st.write("---")
@@ -229,8 +214,6 @@ if selected_date_str:
     new_title = st.text_input("Document Title or Link:")
     new_description = st.text_area("Description (optional):")  # New description input
     pdf_file = st.file_uploader("Upload a PDF (optional):", type=["pdf"])
-
-    MLATML_FOLDER_ID = "1EWEfieDpRW1jMSDkcwLxFc9EWAAyKeT1" 
 
     if st.button("Upload"):
         if not new_title.strip():
@@ -291,14 +274,7 @@ else:
         st.warning("No 'Date' column found in CSV.")
         st.stop()
 
-    # Create a working copy
     df = df_full.copy()
-
-    # Hide past dates if desired
-    # hide_past = st.checkbox("Hide past dates", value=True)
-    # today = datetime.date.today()
-    # if hide_past:
-    #     df = df[df["Date"] >= today]
 
     col1, col2 = st.columns([2, 1])  # Adjust ratios as needed
     with col1:
@@ -354,9 +330,7 @@ else:
                         new_row[col] = "EMPTY"
                     else:
                         new_row[col] = ""
-                # Append the new row to the dataframe
-                # df = df.append(new_row, ignore_index=True)
-                # st.success(f"Added new row for date: {next_wed}")
+
                 new_row_df = pd.DataFrame([new_row])
                 df = pd.concat([df, new_row_df], ignore_index=True)
 
@@ -455,13 +429,6 @@ else:
     st.write("---")
     st.subheader("Participants")
 
-    # Step 1: Read valid participants from participants.txt
-    # try:
-    #     with open("participants.txt", "r") as f:
-    #         valid_participants = [line.strip() for line in f if line.strip()]
-    # except FileNotFoundError:
-    #     valid_participants = []
-    #     st.warning("participants.txt not found. No valid participants loaded.")
     try:
         valid_participants = load_participants_data()
     except Exception as e:
@@ -535,14 +502,6 @@ else:
 
     if admin_mode:
         st.subheader("Manage Participants")
-
-        # Read current participants from file
-        # try:
-        #     with open("participants.txt", "r") as f:
-        #         participants = [line.strip() for line in f if line.strip()]
-        # except FileNotFoundError:
-        #     participants = []
-        #     st.warning("participants.txt not found. Starting with an empty list.")
 
         try:
             participants = load_participants_data()
