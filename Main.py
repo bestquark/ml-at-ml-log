@@ -42,7 +42,7 @@ def refresh_detail():
     
 # ----- PAGE CONFIG -----
 st.set_page_config(
-    page_title="ML@ML Schedule",
+    page_title="ML@ML",
     page_icon="logo.png",
     initial_sidebar_state="collapsed",
     layout="centered"
@@ -82,7 +82,9 @@ with top_container:
     with col1:
         st.image("logo.png", width=60)
     with col2:
-        st.markdown("## ML@ML")
+        st.title("ML@ML")
+
+st.write("---")
 
 # ----- GET QUERY PARAMS -----
 selected_date_str = st.query_params.get("date", "")
@@ -132,14 +134,16 @@ if selected_date_str:
     role_cols = [col for col in role_cols if col in day_df.columns]
     ps = []
     for idx, row in day_df.iterrows():
-        st.write(f"### Schedule {selected_date_str}")
+        datestr = datetime.datetime.strptime(selected_date_str, "%Y-%m-%d").strftime("%b %d %Y")
+        st.write(f"### Schedule for {datestr}")
         for col in role_cols:
             if row[col]:
                 ps.append(row[col])
-                st.write(f"- **{col}**: {row[col]}")
-
+                st.write(f"##### 🚀 **{col}**: {row[col]}")
+                
     existing_slide = load_slides_data(selected_date_str)
-    # st.write(f"{existing_slide}")
+    st.write(f" ")
+
 
     # col1, col2, _, _ = st.columns(4)
     col1, col2 = st.columns([0.2, 1])
@@ -172,7 +176,7 @@ if selected_date_str:
 
     # 5. Materials / Documents Section (persisted store via JSON)
     st.write("---")
-    st.subheader("Documents")
+    st.subheader("Documents 📚")
 
     ws = gs.get_sheet("Materials")
     all_records = load_materials_data()
@@ -205,37 +209,38 @@ if selected_date_str:
     else:
         st.write("No documents yet.")
 
-    st.write("---")
-    st.subheader("Add New Document")
+    # st.write("---")
+    # st.subheader("Add New Document")
+    with st.expander("Add New Document"):
     # Input fields for new document
-    new_title = st.text_input("Document Title or Link:")
-    new_description = st.text_area("Description (optional):")  # New description input
-    pdf_file = st.file_uploader("Upload a PDF (optional):", type=["pdf"])
+        new_title = st.text_input("Document Title or Link:")
+        new_description = st.text_area("Description (optional):")  # New description input
+        pdf_file = st.file_uploader("Upload a PDF (optional):", type=["pdf"])
 
-    if st.button("Upload"):
-        if not new_title.strip():
-            st.warning("Please enter a valid document title/link.")
-        else:
-            pdf_name = ""
-            drive_link = ""
-            if pdf_file is not None:
-                pdf_bytes = pdf_file.read()
-                pdf_name = pdf_file.name
-                mime_type = "application/pdf"
-                _, drive_link = gs.upload_file_to_drive(pdf_name, pdf_bytes, mime_type, parent_folder_id=MLATML_FOLDER_ID)
-            
-            # Pass the description to add_material
-            gs.add_material(
-                selected_date_str,
-                new_title.strip(),
-                new_description.strip(),  # Pass the description here
-                pdf_name,
-                drive_link
-            )
+        if st.button("Upload"):
+            if not new_title.strip():
+                st.warning("Please enter a valid document title/link.")
+            else:
+                pdf_name = ""
+                drive_link = ""
+                if pdf_file is not None:
+                    pdf_bytes = pdf_file.read()
+                    pdf_name = pdf_file.name
+                    mime_type = "application/pdf"
+                    _, drive_link = gs.upload_file_to_drive(pdf_name, pdf_bytes, mime_type, parent_folder_id=MLATML_FOLDER_ID)
+                
+                # Pass the description to add_material
+                gs.add_material(
+                    selected_date_str,
+                    new_title.strip(),
+                    new_description.strip(),  # Pass the description here
+                    pdf_name,
+                    drive_link
+                )
 
-            refresh_detail()  # Rerun to refresh the list after addition
-            st.success("Material added successfully.")
-            st.rerun()
+                refresh_detail()  # Rerun to refresh the list after addition
+                st.success("Material added successfully.")
+                st.rerun()
 
     st.write("---")
     # "Back to Schedule" button
@@ -247,7 +252,6 @@ if selected_date_str:
 # MAIN SCHEDULE VIEW
 ########################################
 else:
-    st.title("Weekly Schedule")
 
     # For demonstration, let's have a simple 'admin' text input in the sidebar
     admin_mode = False
@@ -273,23 +277,14 @@ else:
 
     df = df_full.copy()
 
-    col1, col2 = st.columns([2, 1])  # Adjust ratios as needed
-    with col1:
-    # Hide past dates if desired
-        hide_past = st.checkbox("Hide past dates", value=True)
-        today = datetime.date.today()
-        if hide_past:
-            df = df[df["Date"] >= today]
-
-    with col2:
-        # Refresh button placed side by side with the checkbox
-        if st.button("Refresh Data"):
-            refresh_main()
 
     # hide_past = st.checkbox("Hide past dates", value=True)
     # today = datetime.date.today()
     # if hide_past:
     #     df = df[df["Date"] >= today]
+
+    st.title("Weekly Schedule 📅")
+
 
     # Search by participant name
     search_name = st.text_input("Search by participant name:")
@@ -302,19 +297,20 @@ else:
             mask = mask | df[c].str.contains(search_name, case=False, na=False)
         df = df[mask]
 
+    
+
     # Show a read-only or editable schedule
     if df.empty:
         st.write("No matching rows.")
     else:
         if admin_mode:
             # EDITABLE for admin
-            st.info("You are in admin mode. Feel free to edit and save the schedule.")
-
             if st.button("Add New Row"):
                 # Calculate next Wednesday after the last date in df
                 if not df.empty and "Date" in df.columns:
                     last_date = df["Date"].max()
                 else:
+                    today = datetime.date.today()
                     last_date = today
                 next_wed = fns.get_next_wednesday(last_date)
 
@@ -393,9 +389,11 @@ else:
                 gs.save_schedule_df(edited_df)
                 # refresh_main()
                 st.success("Schedule updated and saved!")
+            
+            st.info("You are in admin mode. Feel free to edit and save the schedule.")
+
         else:
             # READ-ONLY for non-admin
-            st.write("You are **not** in admin mode, schedule is read-only.")
             # st.dataframe(df, use_container_width=True)
 
             # 1) Create a column with just the link (relative query param)
@@ -422,9 +420,23 @@ else:
             )
 
 
+    col1, col2 = st.columns([0.3, 1])  # Adjust ratios as needed
+    with col1:
+    # Hide past dates if desired
+        hide_past = st.checkbox("Hide past dates", value=True)
+        today = datetime.date.today()
+        if hide_past:
+            df = df[df["Date"] >= today]
+
+    with col2:
+        # Refresh button placed side by side with the checkbox
+        if st.button("Refresh Data"):
+            refresh_main()
+
+
     # ----- PARTICIPANT USAGE SCORES -----
     st.write("---")
-    st.subheader("Participants")
+    st.subheader("Participants 🤖")
 
     try:
         valid_participants = load_participants_data()
@@ -539,3 +551,8 @@ else:
                     st.warning(f"{remove_participant} not found in the list.")
         else:
             st.info("No participants available to remove.")
+
+    # put legend for colors of score
+    st.markdown(
+        """**Activity:** 🟥 Low -- 🟨  Avg. -- 🟩 High"""
+        )
