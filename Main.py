@@ -305,65 +305,7 @@ else:
     else:
         if admin_mode:
             # EDITABLE for admin
-            if st.button("Add New Row"):
-                # Calculate next Wednesday after the last date in df
-                if not df.empty and "Date" in df.columns:
-                    last_date = df["Date"].max()
-                else:
-                    today = datetime.date.today()
-                    last_date = today
-                next_wed = fns.get_next_wednesday(last_date)
-
-                # Create a new row with default values
-                new_row = {}
-                for col in df.columns:
-                    if col == "Date":
-                        new_row[col] = next_wed
-                    elif "Presenter" in col:
-                        new_row[col] = "EMPTY"
-                    else:
-                        new_row[col] = ""
-
-                new_row_df = pd.DataFrame([new_row])
-                df = pd.concat([df, new_row_df], ignore_index=True)
-
-                if "Date" in df.columns:
-                    df["Date"] = df["Date"].astype(str)
-                gs.save_schedule_df(df)
-                refresh_main()
-                st.success(f"Added new row for date: {next_wed}")
-                st.rerun()
-            
-            # ---- Delete Row Option ----
-             # Provide a dropdown or selectbox to choose a row to delete
-            if not df.empty:
-                # Reset index to ensure proper indexing
-                df = df.reset_index(drop=True)
-
-                # Create a dictionary mapping each row label to its index
-                row_dict = {
-                    f"Date: {row['Date']}, Presenters: {row['Presenter 1']} & {row['Presenter 2']}": idx
-                    for idx, row in df.iterrows()
-                }
-
-                # Create a selectbox with labels
-                selected_label = st.selectbox("Select a row to delete:", options=list(row_dict.keys()))
-
-                if st.button("Delete Selected Row"):
-                    # Get the corresponding index for the selected label
-                    selected_index = row_dict[selected_label]
-
-                    # Drop the row and reset the index
-                    df = df.drop(index=selected_index).reset_index(drop=True)
-
-                    # Convert date column back to string if necessary
-                    if "Date" in df.columns:
-                        df["Date"] = df["Date"].astype(str)
-
-                    gs.save_schedule_df(df)
-                    refresh_main()   
-                    st.success(f"Deleted row at index {selected_index}.")
-                    st.rerun()
+            st.info("You are in admin mode. Feel free to edit and save the schedule.")
    
             edited_df = st.data_editor(
                 df,
@@ -381,16 +323,77 @@ else:
                 hide_index=True,
                 key="schedule_editor",
             )
+            col1, col2 = st.columns([0.25, 1])  # Adjust ratios as needed
+            with col1:
+                if st.button("Save changes"):
+                    # Convert date column back to string for CSV
+                    if "Date" in edited_df.columns:
+                        edited_df["Date"] = edited_df["Date"].astype(str)
+                    gs.save_schedule_df(edited_df)
+                    # refresh_main()
+                    st.success("Schedule updated and saved!")
 
-            if st.button("Save changes"):
-                # Convert date column back to string for CSV
-                if "Date" in edited_df.columns:
-                    edited_df["Date"] = edited_df["Date"].astype(str)
-                gs.save_schedule_df(edited_df)
-                # refresh_main()
-                st.success("Schedule updated and saved!")
+            with col2:
+                if st.button("Add New Row"):
+                    # Calculate next Wednesday after the last date in df
+                    if not df.empty and "Date" in df.columns:
+                        last_date = df["Date"].max()
+                    else:
+                        today = datetime.date.today()
+                        last_date = today
+                    next_wed = fns.get_next_wednesday(last_date)
+
+                    # Create a new row with default values
+                    new_row = {}
+                    for col in df.columns:
+                        if col == "Date":
+                            new_row[col] = next_wed
+                        elif "Presenter" in col:
+                            new_row[col] = "EMPTY"
+                        else:
+                            new_row[col] = ""
+
+                    new_row_df = pd.DataFrame([new_row])
+                    df = pd.concat([df, new_row_df], ignore_index=True)
+
+                    if "Date" in df.columns:
+                        df["Date"] = df["Date"].astype(str)
+                    gs.save_schedule_df(df)
+                    refresh_main()
+                    st.success(f"Added new row for date: {next_wed}")
+                    st.rerun()
             
-            st.info("You are in admin mode. Feel free to edit and save the schedule.")
+            # ---- Delete Row Option ----
+             # Provide a dropdown or selectbox to choose a row to delete
+            if not df.empty:
+                # Reset index to ensure proper indexing
+                df = df.reset_index(drop=True)
+
+                # Create a dictionary mapping each row label to its index
+                row_dict = {
+                    f"Date: {row['Date']}, Presenters: {row['Presenter 1']} & {row['Presenter 2']}": idx
+                    for idx, row in df.iterrows()
+                }
+
+                # Create a selectbox with labels
+                col1, col2 = st.columns([1, 0.2], vertical_alignment="bottom")
+
+                with col1:
+                    selected_label = st.selectbox("Select a row to delete:", options=list(row_dict.keys()))
+
+                with col2:
+                    if st.button("Delete"):
+                        selected_index = row_dict[selected_label]
+
+                        df = df.drop(index=selected_index).reset_index(drop=True)
+
+                        if "Date" in df.columns:
+                            df["Date"] = df["Date"].astype(str)
+
+                        gs.save_schedule_df(df)
+                        refresh_main()   
+                        st.success(f"Deleted row at index {selected_index}.")
+                        st.rerun()
 
         else:
             # READ-ONLY for non-admin
@@ -519,36 +522,42 @@ else:
             st.stop()
 
         # Add Participant Section
-        new_participant = st.text_input("Add participant:", key="add_input")
-        if st.button("Add Participant"):
-            if new_participant:
-                if new_participant not in participants:
-                    participants.append(new_participant)
-                    # with open("participants.txt", "w") as f:
-                    #     f.write("\n".join(participants) + "\n")
-                    gs.save_participants_list(participants)
-                    st.success(f"Added participant: {new_participant}")
-                    # refresh_main()
-                    st.rerun()
+        col1, col2 = st.columns([1, 0.2], vertical_alignment="bottom")
+        with col1:
+            new_participant = st.text_input("Add participant:", key="add_input")
+        with col2:
+            if st.button("Add"):
+                if new_participant:
+                    if new_participant not in participants:
+                        participants.append(new_participant)
+                        # with open("participants.txt", "w") as f:
+                        #     f.write("\n".join(participants) + "\n")
+                        gs.save_participants_list(participants)
+                        st.success(f"Added participant: {new_participant}")
+                        refresh_main()
+                        st.rerun()
+                    else:
+                        st.warning(f"{new_participant} is already in the list.")
                 else:
-                    st.warning(f"{new_participant} is already in the list.")
-            else:
-                st.warning("Please enter a name to add.")
+                    st.warning("Please enter a name to add.")
 
         # Remove Participant Section using a dropdown
         if participants:  # Only show dropdown if there are participants
-            remove_participant = st.selectbox("Select participant to remove:", options=participants, key="remove_select")
-            if st.button("Remove Participant"):
-                if remove_participant in participants:
-                    participants.remove(remove_participant)
-                    # with open("participants.txt", "w") as f:
-                    #     f.write("\n".join(participants) + "\n")
-                    gs.save_participants_list(participants)
-                    st.success(f"Removed participant: {remove_participant}")
-                    # refresh_main()
-                    st.rerun()
-                else:
-                    st.warning(f"{remove_participant} not found in the list.")
+            col1, col2 = st.columns([1, 0.2], vertical_alignment="bottom")
+            with col1:
+                remove_participant = st.selectbox("Select participant to remove:", options=participants, key="remove_select")
+            with col2:
+                if st.button("Remove"):
+                    if remove_participant in participants:
+                        participants.remove(remove_participant)
+                        # with open("participants.txt", "w") as f:
+                        #     f.write("\n".join(participants) + "\n")
+                        gs.save_participants_list(participants)
+                        st.success(f"Removed participant: {remove_participant}")
+                        refresh_main()
+                        st.rerun()
+                    else:
+                        st.warning(f"{remove_participant} not found in the list.")
         else:
             st.info("No participants available to remove.")
 
