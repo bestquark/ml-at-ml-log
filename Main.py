@@ -1,9 +1,6 @@
 import streamlit as st
 import pandas as pd
 import datetime
-import base64
-import json
-import os
 
 import functions as fns
 import gsheet_utils as gs
