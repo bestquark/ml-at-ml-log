@@ -140,6 +140,15 @@ def generate_presentation(date, presenter1, presenter2, template_id, folder_id=N
             removeParents=previous_parents,
             fields='id, parents'
         ).execute()
+
+    permission_body = {
+        'type': 'anyone',   # Anyone
+        'role': 'writer'     # With writer (edit) access
+    }
+    drive_service.permissions().create(
+        fileId=presentation_id,
+        body=permission_body
+    ).execute()
     
     requests = [
         {
