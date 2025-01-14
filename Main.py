@@ -139,7 +139,7 @@ if selected_date_str:
         for col in role_cols:
             if row[col]:
                 ps.append(row[col])
-                st.write(f"##### 🚀 **{col}**: {row[col]}")
+                st.write(f"##### 🚀 &nbsp; **{col}**: {row[col]}")
                 
     existing_slide = load_slides_data(selected_date_str)
     st.write(f" ")
