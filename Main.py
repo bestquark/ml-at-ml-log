@@ -203,8 +203,8 @@ if selected_date_str:
 
     # Display materials for the selected date
     if target_rows:
-        for row_idx, mat in target_rows:
-            st.write(f"##### **{mat['Title']}**")
+        for indx, (row_idx, mat)in enumerate(target_rows):
+            st.write(f"##### **{indx+1}. {mat['Title']}**")
             if mat.get("Description"):
                 st.write(f"Description: {mat['Description']}")
 
