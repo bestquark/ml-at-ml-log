@@ -325,7 +325,7 @@ else:
             )
             col1, col2 = st.columns([0.25, 1])  # Adjust ratios as needed
             with col1:
-                if st.button("Save changes"):
+                if st.button("Save Changes"):
                     # Convert date column back to string for CSV
                     if "Date" in edited_df.columns:
                         edited_df["Date"] = edited_df["Date"].astype(str)
@@ -334,7 +334,7 @@ else:
                     st.success("Schedule updated and saved!")
 
             with col2:
-                if st.button("Add New Row"):
+                if st.button("Add Row"):
                     # Calculate next Wednesday after the last date in df
                     if not df.empty and "Date" in df.columns:
                         last_date = df["Date"].max()
@@ -533,7 +533,7 @@ else:
                         # with open("participants.txt", "w") as f:
                         #     f.write("\n".join(participants) + "\n")
                         gs.save_participants_list(participants)
-                        st.success(f"Added participant: {new_participant}")
+                        # st.success(f"Added participant: {new_participant}")
                         refresh_main()
                         st.rerun()
                     else:
@@ -553,7 +553,7 @@ else:
                         # with open("participants.txt", "w") as f:
                         #     f.write("\n".join(participants) + "\n")
                         gs.save_participants_list(participants)
-                        st.success(f"Removed participant: {remove_participant}")
+                        # st.success(f"Removed participant: {remove_participant}")
                         refresh_main()
                         st.rerun()
                     else:
