@@ -86,11 +86,16 @@ def assign_roles(
 
             # Update usage counters
             for p in presenters:
+                if p not in names:
+                    continue
                 usage_count[p] += 1
                 last_presented[p] = week_index
 
             # Write to CSV
-            writer.writerow([date, presenters[0], presenters[1]])
+            if week_index not in fixed_assignments:
+                writer.writerow([date, "[R] "+presenters[0], "[R] "+presenters[1]])
+            else:
+                writer.writerow([date, presenters[0], presenters[1]])
 
     print("Schedule CSV generated: schedule.csv")
 
@@ -133,11 +138,17 @@ if __name__ == "__main__":
     # Example usage:
     fixed_assignments = {
         0: {"presenters": ["Cher-Tian", "Gary"]},
+        1: {"presenters": ["Alessandro", "EMPTY"]},
+        2: {"presenters": ["Maria Luiza", "Samantha"]},
+        3: {"presenters": ["Marko", "Marta"]},
+        4: {"presenters": ["Pan", "Zijian"]},
+        5: {"presenters": ["Yuchi (Allan)", "Kourosh"]},
     }
+
 
     assign_roles(
         n_weeks=16,
-        min_presenter_gap=6,
+        min_presenter_gap=7,
         presentation_weight=4,  # 1 presentation = 4 usage points
         fixed_assignments=fixed_assignments
     )
