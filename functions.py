@@ -9,3 +9,7 @@ def get_next_wednesday(after_date):
 
 def highlight_empty(val):
     return 'background-color: yellow' if val == "EMPTY" else ''
+
+def highlight_random(val):
+    # make light blue if val starts with [R]
+    return 'background-color: darkblue' if val.startswith("[R]") else ''

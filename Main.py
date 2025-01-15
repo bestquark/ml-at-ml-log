@@ -404,7 +404,7 @@ else:
 
             # Apply styling to Presenter columns to highlight "EMPTY" cells
             style_cols = [col for col in ["Presenter 1", "Presenter 2"] if col in df.columns]
-            styled_df = df.style.map(fns.highlight_empty, subset=style_cols)
+            styled_df = df.style.map(fns.highlight_empty, subset=style_cols).map(fns.highlight_random, subset=style_cols)
 
             # 2) Show the DataFrame with LinkColumn
             st.dataframe(
