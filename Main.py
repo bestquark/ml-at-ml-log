@@ -275,7 +275,7 @@ else:
         st.warning("No 'Date' column found in CSV.")
         st.stop()
 
-    df = df_full.copy()
+    
 
 
     # hide_past = st.checkbox("Hide past dates", value=True)
@@ -286,142 +286,9 @@ else:
     st.title("Weekly Schedule 📅")
 
 
-    # Search by participant name
-    search_name = st.text_input("Search by participant name:")
-    role_cols = ["Presenter 1", "Presenter 2"]
-    role_cols = [c for c in role_cols if c in df.columns]
+    df = df_full.copy()
 
-    if search_name.strip():
-        mask = False
-        for c in role_cols:
-            mask = mask | df[c].str.contains(search_name, case=False, na=False)
-        df = df[mask]
-
-    
-
-    # Show a read-only or editable schedule
-    if df.empty:
-        st.write("No matching rows.")
-    else:
-        if admin_mode:
-            # EDITABLE for admin
-            st.info("You are in admin mode. Feel free to edit and save the schedule.")
-   
-            edited_df = st.data_editor(
-                df,
-                num_rows="fixed",
-                use_container_width=True,
-                column_config={
-                    "Date": st.column_config.DateColumn("Date"),
-                    "DetailsLink": st.column_config.LinkColumn(
-                        label="Info",
-                        help="Click to view details for this date",
-                        display_text="See Details",
-                        # If you need validation, set validate="^\\?date=.*$" etc.
-                    )
-                },
-                hide_index=True,
-                key="schedule_editor",
-            )
-            col1, col2 = st.columns([0.25, 1])  # Adjust ratios as needed
-            with col1:
-                if st.button("Save Changes"):
-                    # Convert date column back to string for CSV
-                    if "Date" in edited_df.columns:
-                        edited_df["Date"] = edited_df["Date"].astype(str)
-                    gs.save_schedule_df(edited_df)
-                    # refresh_main()
-                    st.success("Schedule updated and saved!")
-
-            with col2:
-                if st.button("Add Row"):
-                    # Calculate next Wednesday after the last date in df
-                    if not df.empty and "Date" in df.columns:
-                        last_date = df["Date"].max()
-                    else:
-                        today = datetime.date.today()
-                        last_date = today
-                    next_wed = fns.get_next_wednesday(last_date)
-
-                    # Create a new row with default values
-                    new_row = {}
-                    for col in df.columns:
-                        if col == "Date":
-                            new_row[col] = next_wed
-                        elif "Presenter" in col:
-                            new_row[col] = "EMPTY"
-                        else:
-                            new_row[col] = ""
-
-                    new_row_df = pd.DataFrame([new_row])
-                    df = pd.concat([df, new_row_df], ignore_index=True)
-
-                    if "Date" in df.columns:
-                        df["Date"] = df["Date"].astype(str)
-                    gs.save_schedule_df(df)
-                    refresh_main()
-                    st.success(f"Added new row for date: {next_wed}")
-                    st.rerun()
-            
-            # ---- Delete Row Option ----
-             # Provide a dropdown or selectbox to choose a row to delete
-            if not df.empty:
-                # Reset index to ensure proper indexing
-                df = df.reset_index(drop=True)
-
-                # Create a dictionary mapping each row label to its index
-                row_dict = {
-                    f"Date: {row['Date']}, Presenters: {row['Presenter 1']} & {row['Presenter 2']}": idx
-                    for idx, row in df.iterrows()
-                }
-
-                # Create a selectbox with labels
-                col1, col2 = st.columns([1, 0.2], vertical_alignment="bottom")
-
-                with col1:
-                    selected_label = st.selectbox("Select a row to delete:", options=list(row_dict.keys()))
-
-                with col2:
-                    if st.button("Delete"):
-                        selected_index = row_dict[selected_label]
-
-                        df = df.drop(index=selected_index).reset_index(drop=True)
-
-                        if "Date" in df.columns:
-                            df["Date"] = df["Date"].astype(str)
-
-                        gs.save_schedule_df(df)
-                        refresh_main()   
-                        st.success(f"Deleted row at index {selected_index}.")
-                        st.rerun()
-
-        else:
-            # READ-ONLY for non-admin
-            # st.dataframe(df, use_container_width=True)
-
-            # 1) Create a column with just the link (relative query param)
-            df["DetailsLink"] = df["Date"].apply(lambda d: f"?date={d.strftime('%Y-%m-%d')}")
-
-            # Apply styling to Presenter columns to highlight "EMPTY" cells
-            style_cols = [col for col in ["Presenter 1", "Presenter 2"] if col in df.columns]
-            styled_df = df.style.map(fns.highlight_empty, subset=style_cols).map(fns.highlight_random, subset=style_cols)
-
-            # 2) Show the DataFrame with LinkColumn
-            st.dataframe(
-                styled_df,
-                column_config={
-                    "Date": st.column_config.DateColumn("Date"),
-                    "DetailsLink": st.column_config.LinkColumn(
-                        label="Info",
-                        help="Click to view details for this date",
-                        display_text="See Details",
-                        # If you need validation, set validate="^\\?date=.*$" etc.
-                    )
-                },
-                hide_index=True,
-                use_container_width=True,
-            )
-
+    schedule_placeholder = st.container()
 
     col1, col2 = st.columns([0.3, 1])  # Adjust ratios as needed
     with col1:
@@ -435,6 +302,144 @@ else:
         # Refresh button placed side by side with the checkbox
         if st.button("Refresh Data"):
             refresh_main()
+
+
+    with schedule_placeholder:
+        # Search by participant name
+        search_name = st.text_input("Search by participant name:")
+        role_cols = ["Presenter 1", "Presenter 2"]
+        role_cols = [c for c in role_cols if c in df.columns]
+
+        if search_name.strip():
+            mask = False
+            for c in role_cols:
+                mask = mask | df[c].str.contains(search_name, case=False, na=False)
+            df = df[mask]
+
+        
+
+        # Show a read-only or editable schedule
+        if df.empty:
+            st.write("No matching rows.")
+        else:
+            if admin_mode:
+                # EDITABLE for admin
+                st.info("You are in admin mode. Feel free to edit and save the schedule.")
+    
+                edited_df = st.data_editor(
+                    df,
+                    num_rows="fixed",
+                    use_container_width=True,
+                    column_config={
+                        "Date": st.column_config.DateColumn("Date"),
+                        "DetailsLink": st.column_config.LinkColumn(
+                            label="Info",
+                            help="Click to view details for this date",
+                            display_text="See Details",
+                            # If you need validation, set validate="^\\?date=.*$" etc.
+                        )
+                    },
+                    hide_index=True,
+                    key="schedule_editor",
+                )
+                col1, col2 = st.columns([0.25, 1])  # Adjust ratios as needed
+                with col1:
+                    if st.button("Save Changes"):
+                        # Convert date column back to string for CSV
+                        if "Date" in edited_df.columns:
+                            edited_df["Date"] = edited_df["Date"].astype(str)
+                        gs.save_schedule_df(edited_df)
+                        # refresh_main()
+                        st.success("Schedule updated and saved!")
+
+                with col2:
+                    if st.button("Add Row"):
+                        # Calculate next Wednesday after the last date in df
+                        if not df.empty and "Date" in df.columns:
+                            last_date = df["Date"].max()
+                        else:
+                            today = datetime.date.today()
+                            last_date = today
+                        next_wed = fns.get_next_wednesday(last_date)
+
+                        # Create a new row with default values
+                        new_row = {}
+                        for col in df.columns:
+                            if col == "Date":
+                                new_row[col] = next_wed
+                            elif "Presenter" in col:
+                                new_row[col] = "EMPTY"
+                            else:
+                                new_row[col] = ""
+
+                        new_row_df = pd.DataFrame([new_row])
+                        df = pd.concat([df, new_row_df], ignore_index=True)
+
+                        if "Date" in df.columns:
+                            df["Date"] = df["Date"].astype(str)
+                        gs.save_schedule_df(df)
+                        refresh_main()
+                        st.success(f"Added new row for date: {next_wed}")
+                        st.rerun()
+                
+                # ---- Delete Row Option ----
+                # Provide a dropdown or selectbox to choose a row to delete
+                if not df.empty:
+                    # Reset index to ensure proper indexing
+                    df = df.reset_index(drop=True)
+
+                    # Create a dictionary mapping each row label to its index
+                    row_dict = {
+                        f"Date: {row['Date']}, Presenters: {row['Presenter 1']} & {row['Presenter 2']}": idx
+                        for idx, row in df.iterrows()
+                    }
+
+                    # Create a selectbox with labels
+                    col1, col2 = st.columns([1, 0.2], vertical_alignment="bottom")
+
+                    with col1:
+                        selected_label = st.selectbox("Select a row to delete:", options=list(row_dict.keys()))
+
+                    with col2:
+                        if st.button("Delete"):
+                            selected_index = row_dict[selected_label]
+
+                            df = df.drop(index=selected_index).reset_index(drop=True)
+
+                            if "Date" in df.columns:
+                                df["Date"] = df["Date"].astype(str)
+
+                            gs.save_schedule_df(df)
+                            refresh_main()   
+                            st.success(f"Deleted row at index {selected_index}.")
+                            st.rerun()
+
+            else:
+                # READ-ONLY for non-admin
+                # st.dataframe(df, use_container_width=True)
+
+                # 1) Create a column with just the link (relative query param)
+                df["DetailsLink"] = df["Date"].apply(lambda d: f"?date={d.strftime('%Y-%m-%d')}")
+
+                # Apply styling to Presenter columns to highlight "EMPTY" cells
+                style_cols = [col for col in ["Presenter 1", "Presenter 2"] if col in df.columns]
+                styled_df = df.style.map(fns.highlight_empty, subset=style_cols).map(fns.highlight_random, subset=style_cols)
+
+                # 2) Show the DataFrame with LinkColumn
+                st.dataframe(
+                    styled_df,
+                    column_config={
+                        "Date": st.column_config.DateColumn("Date"),
+                        "DetailsLink": st.column_config.LinkColumn(
+                            label="Info",
+                            help="Click to view details for this date",
+                            display_text="See Details",
+                            # If you need validation, set validate="^\\?date=.*$" etc.
+                        )
+                    },
+                    hide_index=True,
+                    use_container_width=True,
+                )
 
 
     # ----- PARTICIPANT USAGE SCORES -----
