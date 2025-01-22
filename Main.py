@@ -291,7 +291,7 @@ else:
     schedule_placeholder = st.container()
 
     st.markdown(
-    """**Status:** 🔵 Pending confirmation -- 🟡 Need speaker"""
+    """**Status:** ⚫ Confirmed -- 🔵 Pending confirmation -- 🟡 Need speaker"""
     )
     col1, col2 = st.columns([0.3, 1])  # Adjust ratios as needed
     with col1:
