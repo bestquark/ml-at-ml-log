@@ -300,6 +300,8 @@ else:
         today = datetime.date.today()
         if hide_past:
             df = df[df["Date"] >= today]
+        else:
+            df = df_full.copy()
 
     with col2:
         # Refresh button placed side by side with the checkbox
@@ -351,7 +353,12 @@ else:
                         # Convert date column back to string for CSV
                         if "Date" in edited_df.columns:
                             edited_df["Date"] = edited_df["Date"].astype(str)
-                        gs.save_schedule_df(edited_df)
+                        
+                        updated_df = df_full.copy()
+                        for idx, row in edited_df.iterrows():
+                            updated_df.loc[updated_df["Date"] == row["Date"], :] = row  # Update rows based on "Date"
+
+                        gs.save_schedule_df(updated_df)
                         # refresh_main()
                         st.success("Schedule updated and saved!")
 
