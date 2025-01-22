@@ -290,10 +290,10 @@ else:
 
     schedule_placeholder = st.container()
 
-    col1, col2 = st.columns([0.3, 1])  # Adjust ratios as needed
     st.markdown(
     """**Status:** 🔵 Pending confirmation -- 🟡 Need speaker"""
     )
+    col1, col2 = st.columns([0.3, 1])  # Adjust ratios as needed
     with col1:
     # Hide past dates if desired
         hide_past = st.checkbox("Hide past dates", value=True)
