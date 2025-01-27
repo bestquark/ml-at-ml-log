@@ -12,6 +12,6 @@ def highlight_empty(val):
 
 def highlight_random(val):
     # make light blue if val starts with [P]
-    val = 'background-color: darkblue' if val.startswith("[P]") else ''
-    val = 'background-color: darkred' if val.startswith("[C]") else val
-    return val
+    color = 'background-color: darkblue' if val.startswith("[P]") else ''
+    color = 'background-color: darkred' if val.startswith("[C]") else color
+    return color
