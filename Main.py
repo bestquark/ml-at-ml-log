@@ -276,8 +276,6 @@ else:
         st.stop()
 
     
-
-
     # hide_past = st.checkbox("Hide past dates", value=True)
     # today = datetime.date.today()
     # if hide_past:
@@ -351,12 +349,27 @@ else:
                 with col1:
                     if st.button("Save Changes"):
                         # Convert date column back to string for CSV
-                        if "Date" in edited_df.columns:
-                            edited_df["Date"] = edited_df["Date"].astype(str)
+                        # if "Date" in edited_df.columns:
+                        #     edited_df["Date"] = edited_df["Date"].astype(str)
                         
                         updated_df = df_full.copy()
+                        # for idx, row in edited_df.iterrows():
+                        #     updated_df.loc[updated_df["Date"] == row["Date"], :] = row  # Update rows based on "Date"
+
+                        if "Date" in edited_df.columns:
+                            edited_df["Date"] = pd.to_datetime(edited_df["Date"], errors="coerce").dt.date
+                        updated_df["Date"] = pd.to_datetime(updated_df["Date"], errors="coerce").dt.date
+
+                        # 2) Loop through edited rows and either update existing or append new
                         for idx, row in edited_df.iterrows():
-                            updated_df.loc[updated_df["Date"] == row["Date"], :] = row  # Update rows based on "Date"
+                            mask = (updated_df["Date"] == row["Date"])
+                            if not mask.any():
+                                # If the date doesn't exist in updated_df, append as a new row
+                                updated_df.loc[len(updated_df)] = row
+                            else:
+                                # Otherwise update the matching row
+                                updated_df.loc[mask, updated_df.columns] = row.values
+
 
                         gs.save_schedule_df(updated_df)
                         # refresh_main()
