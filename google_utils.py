@@ -228,7 +228,7 @@ def send_email_via_smtp(smtp_conn, sender, to, subject, message_text):
 def recipients_dialog(pending_options, pending_mapping, participant_emails, app_url, organizer, sender, email_subject):
     # Show all pending recipients as a multiselect (all checked by default)
     selected = st.multiselect(
-        "Select recipients to send confirmation emails to:",
+        "Select recipients to send emails to:",
         options=pending_options,
         default=pending_options,
         key="selected_recipients"
