@@ -193,64 +193,6 @@ if "confirmation" in params:
         gu.save_schedule_df(df)
         response_placeholder.success("Your response has been recorded.")
         redirect_to_schedule()
-
-        # with response_placeholder.container():
-        #     with st.form("dont_want_form"):
-        #         reason = st.text_input("Please provide a reason (optional):",
-        #                             key="reason")
-        #         submitted = st.form_submit_button("Submit")
-        #         if submitted:
-        #             df.at[row_idx, role] = "EMPTY"
-        #             gu.save_schedule_df(df)
-        #             st.success("Your response has been recorded. Thank you!")
-        #             redirect_to_schedule()
-
-    # Display option buttons in four columns.
-
-    # confirm_clicked = st.button("Confirm", key="confirm")
-    # reschedule_clicked = st.button("Reschedule", key="reschedule")
-    # dont_want_clicked = st.button("Don't want or cannot present", key="dont_want")
-
-    # # Load the schedule DataFrame.
-    # df = gu.get_schedule_df()
-
-    # # Find the row corresponding to the meeting date.
-    # row_indices = df.index[df["Date"] == meeting_date].tolist()
-    # if not row_indices:
-    #     st.error("No meeting scheduled for this date.")
-    #     st.stop()
-    # row_idx = row_indices[0]
-
-    # # Process responses based on the clicked button.
-
-    # confirm_placeholder = st.empty()
-
-    # if confirm_clicked:
-    #     # Confirm: remove the "[P]" marker.
-    #     current_value = df.at[row_idx, role]
-    #     if current_value.startswith("[P]"):
-    #         new_value = current_value.replace("[P]", "").strip()
-    #     else:
-    #         new_value = current_value
-    #     df.at[row_idx, role] = new_value
-    #     gu.save_schedule_df(df)
-    #     confirm_placeholder.success("Thank you, your presentation has been confirmed!")
-
-    # elif reschedule_clicked:
-    #     # Reschedule: remove the person from the slot.
-    #     df.at[row_idx, role] = "EMPTY"
-    #     gu.save_schedule_df(df)
-    #     confirm_placeholder.success("You have been removed from this slot. Please contact us for rescheduling.")
-
-    # elif dont_want_clicked:
-    #     # Don't want/cannot present: ask for an optional reason.
-    #     with confirm_placeholder.container():
-    #         with st.expander("Please provide a reason (optional)", expanded=True):
-    #             reason = st.text_input("Please provide a reason (optional):", key="reason", label_visibility="collapsed")
-    #             if st.button("Submit"):
-    #                 df.at[row_idx, role] = "EMPTY"
-    #                 gu.save_schedule_df(df)
-    #                 st.success("Your response has been recorded. Thank you!")
  
 elif "date" in params:
     try:
