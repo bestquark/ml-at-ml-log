@@ -1,9 +1,11 @@
 import streamlit as st
 import pandas as pd
 import datetime
+import time
 
 import functions as fns
-import gsheet_utils as gs
+import google_utils as gu
+
 
 MLATML_FOLDER_ID="1EWEfieDpRW1jMSDkcwLxFc9EWAAyKeT1" # Folder ID for documents
 MLATML_SLIDES_FOLDER_ID="13My4DkbVC_LdHt5X91Od4MWtvo8X5BnG" # Folder ID for Slides
@@ -13,21 +15,21 @@ ZOOM_LINK="https://utoronto.zoom.us/j/83513538471"
 
 @st.cache_data(ttl=300)  
 def load_schedule_data():
-    return gs.get_schedule_df()
+    return gu.get_schedule_df()
 
 @st.cache_data(ttl=300)
 def load_participants_data():
-    return gs.get_participants_list()
+    return gu.get_participants_list()
 
 @st.cache_data(ttl=300)
 def load_materials_data():
-    ws = gs.get_sheet("Materials")
+    ws = gu.get_sheet("Materials")
     all_records = ws.get_all_records()  
     return all_records
 
 @st.cache_data(ttl=300)
 def load_slides_data(selected_date_str):
-    existing_slide = gs.find_slide(selected_date_str)
+    existing_slide = gu.find_slide(selected_date_str)
     return existing_slide
 
 def refresh_main():
@@ -87,17 +89,172 @@ with top_container:
 st.write("---")
 
 # ----- GET QUERY PARAMS -----
-selected_date_str = st.query_params.get("date", "")
-
+# selected_date_str = st.query_params.get("date", "")
+params = st.query_params
 
 ########################################
 # DETAIL VIEW
 ########################################
 
- 
-if selected_date_str:
-    # 1. Convert to date object if possible
+def redirect_to_schedule():
+    with st.spinner("Redirecting back to the schedule..."):
+        time.sleep(3)
+        st.query_params.clear()
+        st.rerun()
+
+if "confirmation" in params:
+    date_str = params.get("date", [""])
+    role = params.get("role", [""]).replace('_', ' ')       # e.g., "Presenter_1"
+    encrypted_name = params.get("name", [""]) # e.g., "[P] Alessandro"
     try:
+        pending_name = fns.decrypt_name(encrypted_name)
+    except Exception as e:
+        st.error("Failed to decode the name parameter.")
+        st.stop()
+
+    if not date_str or not role or not pending_name:
+        st.error("Missing required parameters.")
+        st.stop()
+
+    # Convert the provided date string to a date object.
+    try:
+        meeting_date = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+    except Exception as e:
+        st.error("Invalid date format.")
+        st.stop()
+
+    # check that the name in the date starts with [P], otherwise, say that the form has been used already and redirect to the schedule
+    # Load the schedule DataFrame.
+    with st.spinner("Loading data. Please wait..."):
+        df = gu.get_schedule_df()
+        row_indices = df.index[df["Date"] == meeting_date].tolist()
+        if not row_indices:
+            st.error("No meeting scheduled for this date.")
+            st.stop()
+        row_idx = row_indices[0]
+
+    if not any(df.at[row_idx, role].startswith("[P]") for role in ["Presenter 1", "Presenter 2"]):
+        st.error("This form has already been used, please contact the organizer if you need to change your response.")
+        redirect_to_schedule()
+
+
+    st.subheader("Confirmation form")
+    st.write(f"Dear **{''.join(pending_name.split()[1:])}**, you have been randomly scheduled to present on **{meeting_date.strftime('%B %d, %Y')}** as **{role}**.")
+    st.write("**Please select one of the options below:**")
+
+
+    # Display option buttons in three columns.
+    confirm_clicked = st.button("Confirm", key="confirm")
+    reschedule_clicked = st.button("Reschedule", key="reschedule")
+    dont_want_clicked = st.button("Decline", key="dont_want")
+
+    # Determine which button was clicked.
+    clicked_option = None
+    if confirm_clicked:
+        clicked_option = "Confirm"
+    elif reschedule_clicked:
+        clicked_option = "Reschedule"
+    elif dont_want_clicked:
+        clicked_option = "Decline"
+
+    # Display what the user clicked.
+    if clicked_option:
+        st.info(f"You clicked: {clicked_option}")
+
+    # Use a placeholder to display results/messages.
+    response_placeholder = st.empty()
+
+    if clicked_option == "Confirm":
+        # Confirm: remove the "[P]" marker.
+        current_value = df.at[row_idx, role]
+        if current_value.startswith("[P]"):
+            new_value = current_value.replace("[P]", "").strip()
+        else:
+            new_value = current_value
+        df.at[row_idx, role] = new_value
+        gu.save_schedule_df(df)
+        response_placeholder.success("Thank you, your presentation has been confirmed!")
+        redirect_to_schedule()   
+
+    elif clicked_option == "Reschedule":
+        current_value = df.at[row_idx, role]
+        if current_value.startswith("[P]"):
+            new_value = current_value.replace("[P]", "[R]")
+        else:
+            new_value = current_value
+        df.at[row_idx, role] = new_value
+        gu.save_schedule_df(df)
+        response_placeholder.success("Please contact us for rescheduling.")
+        redirect_to_schedule()
+
+    elif clicked_option == "Decline":
+        # Don't want: use a form inside an expander to keep it visible after submission.
+        df.at[row_idx, role] = "EMPTY"
+        gu.save_schedule_df(df)
+        response_placeholder.success("Your response has been recorded.")
+        redirect_to_schedule()
+
+        # with response_placeholder.container():
+        #     with st.form("dont_want_form"):
+        #         reason = st.text_input("Please provide a reason (optional):",
+        #                             key="reason")
+        #         submitted = st.form_submit_button("Submit")
+        #         if submitted:
+        #             df.at[row_idx, role] = "EMPTY"
+        #             gu.save_schedule_df(df)
+        #             st.success("Your response has been recorded. Thank you!")
+        #             redirect_to_schedule()
+
+    # Display option buttons in four columns.
+
+    # confirm_clicked = st.button("Confirm", key="confirm")
+    # reschedule_clicked = st.button("Reschedule", key="reschedule")
+    # dont_want_clicked = st.button("Don't want or cannot present", key="dont_want")
+
+    # # Load the schedule DataFrame.
+    # df = gu.get_schedule_df()
+
+    # # Find the row corresponding to the meeting date.
+    # row_indices = df.index[df["Date"] == meeting_date].tolist()
+    # if not row_indices:
+    #     st.error("No meeting scheduled for this date.")
+    #     st.stop()
+    # row_idx = row_indices[0]
+
+    # # Process responses based on the clicked button.
+
+    # confirm_placeholder = st.empty()
+
+    # if confirm_clicked:
+    #     # Confirm: remove the "[P]" marker.
+    #     current_value = df.at[row_idx, role]
+    #     if current_value.startswith("[P]"):
+    #         new_value = current_value.replace("[P]", "").strip()
+    #     else:
+    #         new_value = current_value
+    #     df.at[row_idx, role] = new_value
+    #     gu.save_schedule_df(df)
+    #     confirm_placeholder.success("Thank you, your presentation has been confirmed!")
+
+    # elif reschedule_clicked:
+    #     # Reschedule: remove the person from the slot.
+    #     df.at[row_idx, role] = "EMPTY"
+    #     gu.save_schedule_df(df)
+    #     confirm_placeholder.success("You have been removed from this slot. Please contact us for rescheduling.")
+
+    # elif dont_want_clicked:
+    #     # Don't want/cannot present: ask for an optional reason.
+    #     with confirm_placeholder.container():
+    #         with st.expander("Please provide a reason (optional)", expanded=True):
+    #             reason = st.text_input("Please provide a reason (optional):", key="reason", label_visibility="collapsed")
+    #             if st.button("Submit"):
+    #                 df.at[row_idx, role] = "EMPTY"
+    #                 gu.save_schedule_df(df)
+    #                 st.success("Your response has been recorded. Thank you!")
+ 
+elif "date" in params:
+    try:
+        selected_date_str = params.get("date", [""])
         selected_date = datetime.datetime.strptime(selected_date_str, "%Y-%m-%d").date()
     except ValueError:
         st.error("Invalid date in URL. Please go back to the schedule.")
@@ -156,17 +313,17 @@ if selected_date_str:
             if st.button("Make Slides", key=f"main_slides_{idx}"):
                 try:
                     from googleapiclient.errors import HttpError
-                    drive_service = gs.get_drive_service()
+                    drive_service = gu.get_drive_service()
                     file = drive_service.files().get(fileId=SLIDES_TEMPLATE_ID).execute()
                 except HttpError as e:
                     st.error(f"Template file not found or access denied: {e}")
 
-                presentation_id, presentation_link = gs.generate_presentation(
+                presentation_id, presentation_link = gu.generate_presentation(
                     selected_date_str, ps[0], ps[1], SLIDES_TEMPLATE_ID, folder_id=MLATML_SLIDES_FOLDER_ID
                 )
                 if presentation_id and presentation_link:
                     # Save slide entry using date, presentation ID, and link
-                    gs.add_slide_entry(selected_date_str, presentation_id, presentation_link)
+                    gu.add_slide_entry(selected_date_str, presentation_id, presentation_link)
                     st.success("Slides generated successfully.")
                     load_slides_data.clear()  
                     st.rerun()
@@ -178,7 +335,7 @@ if selected_date_str:
     st.write("---")
     st.subheader("Documents 📚")
 
-    ws = gs.get_sheet("Materials")
+    ws = gu.get_sheet("Materials")
     all_records = load_materials_data()
 
     target_rows = []  # list of tuples (row_index, material_record)
@@ -227,10 +384,10 @@ if selected_date_str:
                     pdf_bytes = pdf_file.read()
                     pdf_name = pdf_file.name
                     mime_type = "application/pdf"
-                    _, drive_link = gs.upload_file_to_drive(pdf_name, pdf_bytes, mime_type, parent_folder_id=MLATML_FOLDER_ID)
+                    _, drive_link = gu.upload_file_to_drive(pdf_name, pdf_bytes, mime_type, parent_folder_id=MLATML_FOLDER_ID)
                 
                 # Pass the description to add_material
-                gs.add_material(
+                gu.add_material(
                     selected_date_str,
                     new_title.strip(),
                     new_description.strip(),  # Pass the description here
@@ -248,11 +405,12 @@ if selected_date_str:
         st.query_params.clear()
         st.rerun()
 
+
+
 ########################################
 # MAIN SCHEDULE VIEW
 ########################################
 else:
-
     # For demonstration, let's have a simple 'admin' text input in the sidebar
     admin_mode = False
     admin_password = st.sidebar.text_input("Admin password:", type="password")
@@ -275,11 +433,6 @@ else:
         st.warning("No 'Date' column found in CSV.")
         st.stop()
 
-    
-    # hide_past = st.checkbox("Hide past dates", value=True)
-    # today = datetime.date.today()
-    # if hide_past:
-    #     df = df[df["Date"] >= today]
 
     st.title("Weekly Schedule 📅")
 
@@ -345,97 +498,94 @@ else:
                     hide_index=True,
                     key="schedule_editor",
                 )
-                col1, col2 = st.columns([0.25, 1])  # Adjust ratios as needed
+                col1, col2, col3 = st.columns([0.2, 0.15, 0.65])  # Adjust ratios as needed
+
+                message_placeholder = st.empty()
+
                 with col1:
                     if st.button("Save Changes"):
-                        # Convert date column back to string for CSV
-                        # if "Date" in edited_df.columns:
-                        #     edited_df["Date"] = edited_df["Date"].astype(str)
-                        
+
                         updated_df = df_full.copy()
-                        # for idx, row in edited_df.iterrows():
-                        #     updated_df.loc[updated_df["Date"] == row["Date"], :] = row  # Update rows based on "Date"
 
                         if "Date" in edited_df.columns:
                             edited_df["Date"] = pd.to_datetime(edited_df["Date"], errors="coerce").dt.date
                         updated_df["Date"] = pd.to_datetime(updated_df["Date"], errors="coerce").dt.date
 
-                        # 2) Loop through edited rows and either update existing or append new
                         for idx, row in edited_df.iterrows():
                             mask = (updated_df["Date"] == row["Date"])
                             if not mask.any():
-                                # If the date doesn't exist in updated_df, append as a new row
                                 updated_df.loc[len(updated_df)] = row
                             else:
-                                # Otherwise update the matching row
                                 updated_df.loc[mask, updated_df.columns] = row.values
 
 
-                        gs.save_schedule_df(updated_df)
-                        # refresh_main()
-                        st.success("Schedule updated and saved!")
+                        gu.save_schedule_df(updated_df)
+                        message_placeholder.success("Schedule updated and saved!")
+
 
                 with col2:
                     if st.button("Add Row"):
-                        # Calculate next Wednesday after the last date in df
-                        if not df.empty and "Date" in df.columns:
-                            last_date = df["Date"].max()
+                        # Use a copy of df_full for modification
+                        updated_df = df_full.copy()
+                        if not updated_df.empty and "Date" in updated_df.columns:
+                            last_date = updated_df["Date"].max()
                         else:
-                            today = datetime.date.today()
-                            last_date = today
+                            last_date = datetime.date.today()
                         next_wed = fns.get_next_wednesday(last_date)
 
-                        # Create a new row with default values
+                        # Create a new row with default values using updated_df's columns
                         new_row = {}
-                        for col in df.columns:
+                        for col in updated_df.columns:
                             if col == "Date":
                                 new_row[col] = next_wed
                             elif "Presenter" in col:
                                 new_row[col] = "EMPTY"
                             else:
                                 new_row[col] = ""
-
                         new_row_df = pd.DataFrame([new_row])
-                        df = pd.concat([df, new_row_df], ignore_index=True)
-
-                        if "Date" in df.columns:
-                            df["Date"] = df["Date"].astype(str)
-                        gs.save_schedule_df(df)
+                                        
+                        # Append the new row to our copy
+                        updated_df = pd.concat([updated_df, new_row_df], ignore_index=True)
+                        if "Date" in updated_df.columns:
+                            updated_df["Date"] = updated_df["Date"].astype(str)
+                        gu.save_schedule_df(updated_df)
                         refresh_main()
-                        st.success(f"Added new row for date: {next_wed}")
+                        message_placeholder.success(f"Added new row for date: {next_wed}")
                         st.rerun()
                 
-                # ---- Delete Row Option ----
-                # Provide a dropdown or selectbox to choose a row to delete
-                if not df.empty:
-                    # Reset index to ensure proper indexing
-                    df = df.reset_index(drop=True)
+                with col3:
+                    if st.button("Send Confirmation Emails"):
+                        result = gu.send_confirmation_emails()
+                        # st.info(result)
+                        message_placeholder.info(result)
 
-                    # Create a dictionary mapping each row label to its index
+                # ---- Delete Row Option ----
+                if not df.empty:
+                    # Build a dictionary mapping each row label to its original index (do not reset the index)
                     row_dict = {
                         f"Date: {row['Date']}, Presenters: {row['Presenter 1']} & {row['Presenter 2']}": idx
                         for idx, row in df.iterrows()
                     }
 
-                    # Create a selectbox with labels
-                    col1, col2 = st.columns([1, 0.2], vertical_alignment="bottom")
+                    col_del1, col_del2 = st.columns([1, 0.2], vertical_alignment="bottom")
 
-                    with col1:
+                    with col_del1:
                         selected_label = st.selectbox("Select a row to delete:", options=list(row_dict.keys()))
 
-                    with col2:
+                    with col_del2:
                         if st.button("Delete"):
                             selected_index = row_dict[selected_label]
-
-                            df = df.drop(index=selected_index).reset_index(drop=True)
-
-                            if "Date" in df.columns:
-                                df["Date"] = df["Date"].astype(str)
-
-                            gs.save_schedule_df(df)
-                            refresh_main()   
-                            st.success(f"Deleted row at index {selected_index}.")
+                            # Work on a copy of the full schedule, preserving all rows
+                            updated_df = df_full.copy()
+                            # Remove the row using the original index
+                            updated_df = updated_df.drop(index=selected_index)
+                            if "Date" in updated_df.columns:
+                                updated_df["Date"] = updated_df["Date"].astype(str)
+                            gu.save_schedule_df(updated_df)
+                            refresh_main()
+                            message_placeholder.success(f"Deleted row at index {selected_index}.")
                             st.rerun()
+                
 
             else:
                 # READ-ONLY for non-admin
@@ -475,25 +625,23 @@ else:
         st.error(f"Error loading participants: {e}")
         st.stop()
 
-    # Initialize usage dictionary for all valid participants with 0 counts
-    participants_usage = {person: {"presenter_count": 0} for person in valid_participants}
 
-    # Weighted usage for each participant (4 points/presentation)
+    participants_usage = {p["Name"]: {"presenter_count": 0} for p in valid_participants}
+
     for col in ["Presenter 1", "Presenter 2"]:
         if col in df_full.columns:
             for person in df_full[col]:
-                # Only consider non-empty names that are in the list of valid participants
                 if not person or person not in participants_usage:
                     continue
                 participants_usage[person]["presenter_count"] += 1
 
-    # Build records list from all valid participants
     records = []
-    for person in valid_participants:
-        usage_dict = participants_usage.get(person, {"presenter_count": 0})
+    for participant in valid_participants:
+        name = participant["Name"]
+        usage_dict = participants_usage.get(name, {"presenter_count": 0})
         weighted_usage = usage_dict["presenter_count"] * 4  # Add journal points if needed
         records.append({
-            "Name": person,
+            "Name": name,
             "Presentations": usage_dict["presenter_count"],
             "Points": weighted_usage,
         })
@@ -524,7 +672,6 @@ else:
         if search_name.strip():
             df_scores = df_scores[df_scores["Name"].str.contains(search_name, case=False, na=False)]
 
-        # Remove unnecessary columns before styling
         df_scores.drop(columns=["Points", "Presentations"], inplace=True)
 
         styled_df = (
@@ -542,50 +689,42 @@ else:
 
     if admin_mode:
         st.subheader("Manage Participants")
-
         try:
             participants = load_participants_data()
         except Exception as e:
             st.error(f"Error loading participants: {e}")
             st.stop()
 
-        # Add Participant Section
         col1, col2 = st.columns([1, 0.2], vertical_alignment="bottom")
+        pmessage_placeholder = st.empty()
         with col1:
-            new_participant = st.text_input("Add participant:", key="add_input")
+            new_participant = st.text_input("Add participant:", key="add_input", placeholder="Name")
+            new_participant_email = st.text_input("Email:", key="email_input", placeholder="Email", label_visibility="collapsed")
         with col2:
             if st.button("Add"):
-                if new_participant:
-                    if new_participant not in participants:
-                        participants.append(new_participant)
-                        # with open("participants.txt", "w") as f:
-                        #     f.write("\n".join(participants) + "\n")
-                        gs.save_participants_list(participants)
-                        # st.success(f"Added participant: {new_participant}")
+                if new_participant and new_participant_email:
+                    if not any(p["Name"] == new_participant for p in participants):
+                        participants.append({"Name": new_participant, "Email": new_participant_email})
+                        gu.save_participants_list(participants)
                         refresh_main()
                         st.rerun()
                     else:
-                        st.warning(f"{new_participant} is already in the list.")
+                        pmessage_placeholder.warning(f"{new_participant} is already in the list.")
                 else:
-                    st.warning("Please enter a name to add.")
+                    pmessage_placeholder.warning("Please enter a name and email to add.")
 
-        # Remove Participant Section using a dropdown
-        if participants:  # Only show dropdown if there are participants
+
+        if participants:
             col1, col2 = st.columns([1, 0.2], vertical_alignment="bottom")
+            participant_names = [p["Name"] for p in participants]
             with col1:
-                remove_participant = st.selectbox("Select participant to remove:", options=participants, key="remove_select")
+                remove_participant = st.selectbox("Remove participant:", options=participant_names, key="remove_select")
             with col2:
                 if st.button("Remove"):
-                    if remove_participant in participants:
-                        participants.remove(remove_participant)
-                        # with open("participants.txt", "w") as f:
-                        #     f.write("\n".join(participants) + "\n")
-                        gs.save_participants_list(participants)
-                        # st.success(f"Removed participant: {remove_participant}")
-                        refresh_main()
-                        st.rerun()
-                    else:
-                        st.warning(f"{remove_participant} not found in the list.")
+                    participants = [p for p in participants if p["Name"] != remove_participant]
+                    gu.save_participants_list(participants)
+                    refresh_main()
+                    st.rerun()
         else:
             st.info("No participants available to remove.")
 
