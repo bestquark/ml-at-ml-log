@@ -1,11 +1,9 @@
 Dear {name_presenter},
 
 You have been randomly scheduled to present on {date}, but your status is pending confirmation.
-Please confirm, reschedule, or decline your participation by clicking the link below:
+Please confirm, reschedule, or decline your participation by clicking the link below.
 
 {confirmation_link}
-
-If you wish to reschedule or cannot present, please follow the instructions on the confirmation page.
 
 Thank you!
 {name_organizer}

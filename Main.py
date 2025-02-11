@@ -138,15 +138,15 @@ if "confirmation" in params:
         redirect_to_schedule()
 
 
-    st.subheader("Confirmation form")
+    st.subheader("Schedule form 📝")
     st.write(f"Dear **{''.join(pending_name.split()[1:])}**, you have been randomly scheduled to present on **{meeting_date.strftime('%B %d, %Y')}** as **{role}**.")
     st.write("**Please select one of the options below:**")
 
 
     # Display option buttons in three columns.
-    confirm_clicked = st.button("Confirm", key="confirm")
-    reschedule_clicked = st.button("Reschedule", key="reschedule")
-    dont_want_clicked = st.button("Decline", key="dont_want")
+    confirm_clicked = st.button("Confirm ✅", key="confirm")
+    reschedule_clicked = st.button("Reschedule 🔁", key="reschedule")
+    dont_want_clicked = st.button("Decline ❌", key="dont_want")
 
     # Determine which button was clicked.
     clicked_option = None

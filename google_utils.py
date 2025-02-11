@@ -7,6 +7,8 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaInMemoryUpload
 import base64
 from email.mime.text import MIMEText
+import smtplib
+
 from functions import encrypt_name
 
 SCOPES = [
@@ -194,27 +196,31 @@ def add_slide_entry(date_str, presentation_id, presentation_link):
     except Exception as e:
         st.error(f"Error adding slide entry: {e}")
 
+
+
+
 ###############################################################################
-# Gmail (Email) Utilities
+# CSLab (UofT) Email Utilities via SMTP
 ###############################################################################
 
-def get_gmail_service():
-    scopes = ["https://www.googleapis.com/auth/gmail.send"]
-    service_account_info = st.secrets["gcp_service_account"]
-    credentials = Credentials.from_service_account_info(service_account_info, scopes=scopes)
-    # Impersonate the authorized sender account (must be set up with domain-wide delegation)
-    credentials = credentials.with_subject(st.secrets["sender_email"])
-    return build('gmail', 'v1', credentials=credentials)
+def get_smtp_connection():
+    smtp_server = st.secrets["smtp_server"]       # e.g. "smtp.cs.toronto.edu"
+    smtp_port = st.secrets.get("smtp_port", 587)    # default to 587 for TLS
+    sender_email = st.secrets["sender_email"]       # your UofT email address
+    smtp_password = st.secrets["smtp_password"]     # your email password
+    server = smtplib.SMTP(smtp_server, smtp_port)
+    server.starttls()  # secure the connection using TLS
+    server.login(sender_email, smtp_password)
+    return server
 
-def send_email_via_gmail(service, sender, to, subject, message_text):
+def send_email_via_smtp(smtp_conn, sender, to, subject, message_text):
+    # Construct the MIMEText message
     message = MIMEText(message_text)
-    message['to'] = to
-    message['from'] = sender
-    message['subject'] = subject
-    raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
-    body = {'raw': raw}
-    # print("message:", message_text)
-    return service.users().messages().send(userId="me", body=body).execute()
+    message['To'] = to
+    message['From'] = sender
+    message['Subject'] = subject
+    # Send the email using the SMTP connection
+    smtp_conn.sendmail(sender, to, message.as_string())
 
 def send_confirmation_emails():
     df = get_schedule_df()
@@ -242,7 +248,7 @@ def send_confirmation_emails():
                 pending_entries.append({
                     "date": meeting_date_str,
                     "role": role,
-                    "pending_name": cell_val.strip(),  # e.g. "[P] Alessandro"
+                    "pending_name": cell_val.strip(),            # e.g. "[P] Alessandro"
                     "clean_name": cell_val.replace("[P]", "").strip()  # e.g. "Alessandro"
                 })
     
@@ -250,9 +256,9 @@ def send_confirmation_emails():
         return "No pending confirmation entries found."
     
     try:
-        gmail_service = get_gmail_service()
+        smtp_conn = get_smtp_connection()
     except Exception as e:
-        return f"Error initializing Gmail service: {e}"
+        return f"Error initializing SMTP connection: {e}"
     
     sender = st.secrets["sender_email"]
     app_url = st.secrets["app_url"]
@@ -263,12 +269,6 @@ def send_confirmation_emails():
     for entry in pending_entries:
         to_email = participant_emails.get(entry["clean_name"], "")
         print("Sending email to:", to_email)
-        
-        # For debugging, override to_email if needed:
-        ### REMOVE THIS BLOCK in production ###
-        to_email = "luismantilla1999@gmail.com"
-        print("DEBUG MODE: Not sending email. Instead sending to:", to_email)
-        ### END DEBUG BLOCK ###
         
         if not to_email:
             error_msgs.append(f"No email found for {entry['clean_name']}.")
@@ -295,11 +295,12 @@ def send_confirmation_emails():
         )
 
         try:
-            send_email_via_gmail(gmail_service, sender, to_email, email_subject, email_message_text)
+            send_email_via_smtp(smtp_conn, sender, to_email, email_subject, email_message_text)
             confirmations_sent += 1
         except Exception as e:
             error_msgs.append(f"Error sending email to {to_email}: {e}")
     
+    smtp_conn.quit()
     result_message = f"Confirmation emails sent to {confirmations_sent} pending participants."
     if error_msgs:
         result_message += "\nErrors:\n" + "\n".join(error_msgs)
