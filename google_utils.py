@@ -215,7 +215,7 @@ def get_smtp_connection():
 
 def send_email_via_smtp(smtp_conn, sender, to, subject, message_text):
     # Construct the MIMEText message
-    message = MIMEText(message_text)
+    message = MIMEText(message_text, 'html')
     message['To'] = to
     message['From'] = sender
     message['Subject'] = subject
@@ -289,7 +289,7 @@ def send_confirmation_emails():
 
         email_message_text = email_template.format(
             name_presenter=entry["clean_name"],
-            date=entry["date"],
+            date=meeting_date.strftime('%B %d, %Y'),
             confirmation_link=confirmation_link,
             name_organizer=organizer
         )
