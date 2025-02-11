@@ -223,9 +223,8 @@ def send_email_via_smtp(smtp_conn, sender, to, subject, message_text):
     # Send the email using the SMTP connection
     smtp_conn.sendmail(sender, to, message.as_string())
 
-## FUUUCK
 
-@st.dialog("Select Recipients and Send Emails")
+@st.dialog("Send Confirmation Emails")
 def recipients_dialog(pending_options, pending_mapping, participant_emails, app_url, organizer, sender, email_subject):
     # Show all pending recipients as a multiselect (all checked by default)
     selected = st.multiselect(
