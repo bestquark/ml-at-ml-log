@@ -10,7 +10,7 @@ st.set_page_config(
     page_title="ML@ML Schedule",
     page_icon="logo.png",
     initial_sidebar_state="collapsed",
-    layout="centered"
+    layout="centered",
 )
 
 # ----- GLOBAL STYLES -----
@@ -37,7 +37,7 @@ st.markdown(
     }
     </style>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
 # ----- TOP HEADER (LOGO + TITLE) -----
@@ -57,6 +57,7 @@ selected_date_str = st.query_params.get("date", "")
 ########################################
 DATA_FILE = "materials_data.json"
 
+
 def load_materials_data():
     """Load the materials from a JSON file, or return an empty dict if it doesn't exist."""
     if os.path.exists(DATA_FILE):
@@ -65,10 +66,12 @@ def load_materials_data():
     else:
         return {}
 
+
 def save_materials_data(data):
     """Write the entire materials structure to JSON."""
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
+
 
 ########################################
 # DETAIL VIEW
@@ -136,7 +139,7 @@ if selected_date_str:
         st.write("#### Existing Materials:")
         for i, mat in enumerate(materials_data):
             st.write(f"**{i+1}. {mat['title']}**")
-            
+
             # If there's a PDF, show a "Download PDF" link/button
             if "pdf_data_b64" in mat:
                 pdf_name = mat["pdf_name"]
@@ -249,7 +252,7 @@ else:
                         help="Click to view details for this date",
                         display_text="See Details",
                         # If you need validation, set validate="^\\?date=.*$" etc.
-                    )
+                    ),
                 },
                 hide_index=True,
                 key="schedule_editor",
@@ -267,7 +270,9 @@ else:
             # st.dataframe(df, use_container_width=True)
 
             # 1) Create a column with just the link (relative query param)
-            df["DetailsLink"] = df["Date"].apply(lambda d: f"?date={d.strftime('%Y-%m-%d')}")
+            df["DetailsLink"] = df["Date"].apply(
+                lambda d: f"?date={d.strftime('%Y-%m-%d')}"
+            )
 
             # 2) Show the DataFrame with LinkColumn
             st.dataframe(
@@ -279,12 +284,11 @@ else:
                         help="Click to view details for this date",
                         display_text="See Details",
                         # If you need validation, set validate="^\\?date=.*$" etc.
-                    )
+                    ),
                 },
                 hide_index=True,
                 use_container_width=True,
             )
-
 
     # ----- PARTICIPANT USAGE SCORES -----
     st.write("---")
@@ -298,7 +302,10 @@ else:
                 if not person:
                     continue
                 if person not in participants_usage:
-                    participants_usage[person] = {"presenter_count": 0, "journal_count": 0}
+                    participants_usage[person] = {
+                        "presenter_count": 0,
+                        "journal_count": 0,
+                    }
                 if "Presenter" in col:
                     participants_usage[person]["presenter_count"] += 1
                 else:
@@ -307,17 +314,18 @@ else:
     records = []
     for person, usage_dict in participants_usage.items():
         weighted_usage = usage_dict["presenter_count"] * 4 + usage_dict["journal_count"]
-        records.append({
-            "Name": person,
-            "Presentations": usage_dict["presenter_count"],
-            "Journals": usage_dict["journal_count"],
-            "Points": weighted_usage,
-        })
+        records.append(
+            {
+                "Name": person,
+                "Presentations": usage_dict["presenter_count"],
+                "Journals": usage_dict["journal_count"],
+                "Points": weighted_usage,
+            }
+        )
 
     df_scores = pd.DataFrame(records)
 
     if not df_scores.empty:
-        
 
         min_usage = df_scores["Points"].min()
         max_usage = df_scores["Points"].max()
@@ -340,12 +348,12 @@ else:
         df_scores.sort_values("Score", ascending=False, inplace=True)
 
         if search_name.strip():
-            df_scores = df_scores[df_scores["Name"].str.contains(search_name, case=False, na=False)]
+            df_scores = df_scores[
+                df_scores["Name"].str.contains(search_name, case=False, na=False)
+            ]
 
-        styled_df = (
-            df_scores.style
-            .applymap(color_for_score, subset=["Score"])
-            .format({"Score": "{:.2f}"})
+        styled_df = df_scores.style.applymap(color_for_score, subset=["Score"]).format(
+            {"Score": "{:.2f}"}
         )
 
         if not df_scores.empty:

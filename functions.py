@@ -7,6 +7,7 @@ from cryptography.fernet import Fernet
 import base64
 import streamlit as st
 
+
 def get_next_wednesday(after_date):
     # Wednesday is weekday() == 2
     days_ahead = 2 - after_date.weekday()
@@ -14,15 +15,18 @@ def get_next_wednesday(after_date):
         days_ahead += 7
     return after_date + datetime.timedelta(days=days_ahead)
 
+
 def highlight_empty(val):
-    return 'background-color: goldenrod' if val in ["EMPTY", ""," "] else ''
+    return "background-color: goldenrod" if val in ["EMPTY", "", " "] else ""
+
 
 def highlight_random(val):
     # make light blue if val starts with [P]
-    color = 'background-color: darkblue' if val.startswith("[P]") else ''
-    color = 'background-color: darkred' if val.startswith("[C]") else color
-    color = 'background-color: darkblue' if val.startswith("[R]") else color
+    color = "background-color: darkblue" if val.startswith("[P]") else ""
+    color = "background-color: darkred" if val.startswith("[C]") else color
+    color = "background-color: darkblue" if val.startswith("[R]") else color
     return color
+
 
 def get_fernet():
     # Retrieve the encryption key string from secrets.toml
@@ -35,15 +39,17 @@ def get_fernet():
         length=32,
         salt=salt,
         iterations=100000,
-        backend=default_backend()
+        backend=default_backend(),
     )
     derived_key = base64.urlsafe_b64encode(kdf.derive(encryption_key_bytes))
     return Fernet(derived_key)
+
 
 def encrypt_name(name: str) -> str:
     f = get_fernet()
     encrypted = f.encrypt(name.encode("utf-8"))
     return encrypted.decode("utf-8")
+
 
 def decrypt_name(encrypted_name: str) -> str:
     f = get_fernet()

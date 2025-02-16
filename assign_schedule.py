@@ -9,12 +9,13 @@ random.seed(seed)
 
 names = gu.get_participants_list()
 
+
 def get_next_n_wednesdays(n=16):
     """Return a list of the next n Wednesday dates (as strings)."""
     dates = []
     today = datetime.date.today()
     # Move to the next Wednesday
-    while today.weekday() != 2:  
+    while today.weekday() != 2:
         today += datetime.timedelta(days=1)
     # Collect the next n Wednesdays
     for _ in range(n):
@@ -22,11 +23,9 @@ def get_next_n_wednesdays(n=16):
         today += datetime.timedelta(days=7)
     return dates
 
+
 def assign_roles(
-    n_weeks=16,
-    min_presenter_gap=4,
-    presentation_weight=4,
-    fixed_assignments=None
+    n_weeks=16, min_presenter_gap=4, presentation_weight=4, fixed_assignments=None
 ):
     """
     Create a schedule with only presenters:
@@ -93,16 +92,20 @@ def assign_roles(
 
             # Write to CSV
             if week_index not in fixed_assignments:
-                writer.writerow([date, "[R] "+presenters[0], "[R] "+presenters[1]])
+                writer.writerow([date, "[R] " + presenters[0], "[R] " + presenters[1]])
             else:
                 writer.writerow([date, presenters[0], presenters[1]])
 
     print("Schedule CSV generated: schedule.csv")
 
+
 def pick_presenters(
-    usage_count, last_presented, current_week,
-    min_presenter_gap, presentation_weight,
-    number=2
+    usage_count,
+    last_presented,
+    current_week,
+    min_presenter_gap,
+    presentation_weight,
+    number=2,
 ):
     """
     Pick 'number' presenters subject to:
@@ -134,6 +137,7 @@ def pick_presenters(
 
     return chosen
 
+
 if __name__ == "__main__":
     # Example usage:
     fixed_assignments = {
@@ -145,10 +149,9 @@ if __name__ == "__main__":
         5: {"presenters": ["Yuchi (Allan)", "Kourosh"]},
     }
 
-
     assign_roles(
         n_weeks=16,
         min_presenter_gap=7,
         presentation_weight=4,  # 1 presentation = 4 usage points
-        fixed_assignments=fixed_assignments
+        fixed_assignments=fixed_assignments,
     )

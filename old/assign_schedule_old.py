@@ -3,11 +3,32 @@ import csv
 import random
 
 names = [
-    "Abdul", "Alastair", "Alessandro", "Andres", "Austin",
-    "Changhyeok", "Cher-Tian", "Ella", "Gary", "Jackie", "Jorge",
-    "Juan", "Luca", "Luis", "Mahdi", "Marko", "Marta", "Pan",
-    "Samantha", "Sean", "Shi Xuan", "Yuchi (Allan)", "Yuma", "Zijian"
+    "Abdul",
+    "Alastair",
+    "Alessandro",
+    "Andres",
+    "Austin",
+    "Changhyeok",
+    "Cher-Tian",
+    "Ella",
+    "Gary",
+    "Jackie",
+    "Jorge",
+    "Juan",
+    "Luca",
+    "Luis",
+    "Mahdi",
+    "Marko",
+    "Marta",
+    "Pan",
+    "Samantha",
+    "Sean",
+    "Shi Xuan",
+    "Yuchi (Allan)",
+    "Yuma",
+    "Zijian",
 ]
+
 
 def get_next_n_wednesdays(n=16):
     """Return a list of the next n Wednesday dates (as strings)."""
@@ -20,11 +41,9 @@ def get_next_n_wednesdays(n=16):
         today += datetime.timedelta(days=7)
     return dates
 
+
 def assign_roles(
-    n_weeks=16,
-    min_presenter_gap=4,
-    presentation_weight=4,
-    fixed_assignments=None
+    n_weeks=16, min_presenter_gap=4, presentation_weight=4, fixed_assignments=None
 ):
     """
     Create a schedule with:
@@ -49,13 +68,17 @@ def assign_roles(
 
     # usage_count[p] = {"presenter": #, "journal": #}
     usage_count = {name: {"presenter": 0, "journal": 0} for name in names}
-    last_presented = {name: -999 for name in names}  # track last week index someone presented
+    last_presented = {
+        name: -999 for name in names
+    }  # track last week index someone presented
 
     wednesdays = get_next_n_wednesdays(n_weeks)
 
     with open("schedule.csv", "w", newline="", encoding="utf-8") as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(["Date", "Presenter 1", "Presenter 2", "Journal 1", "Journal 2"])
+        writer.writerow(
+            ["Date", "Presenter 1", "Presenter 2", "Journal 1", "Journal 2"]
+        )
 
         for week_index, date in enumerate(wednesdays):
             # Check if this week is pre-assigned
@@ -67,24 +90,36 @@ def assign_roles(
                 # If presenters or journals are not explicitly given, pick them
                 if not presenters:
                     presenters = pick_presenters(
-                        usage_count, last_presented, week_index,
-                        min_presenter_gap, presentation_weight, number=2
+                        usage_count,
+                        last_presented,
+                        week_index,
+                        min_presenter_gap,
+                        presentation_weight,
+                        number=2,
                     )
                 if not journals:
                     journals = pick_journalers(
-                        usage_count, exclude=set(presenters),
-                        presentation_weight=presentation_weight, number=2
+                        usage_count,
+                        exclude=set(presenters),
+                        presentation_weight=presentation_weight,
+                        number=2,
                     )
 
             else:
                 # Normal assignment
                 presenters = pick_presenters(
-                    usage_count, last_presented, week_index,
-                    min_presenter_gap, presentation_weight, number=2
+                    usage_count,
+                    last_presented,
+                    week_index,
+                    min_presenter_gap,
+                    presentation_weight,
+                    number=2,
                 )
                 journals = pick_journalers(
-                    usage_count, exclude=set(presenters),
-                    presentation_weight=presentation_weight, number=2
+                    usage_count,
+                    exclude=set(presenters),
+                    presentation_weight=presentation_weight,
+                    number=2,
                 )
 
             # Update usage counters
@@ -94,14 +129,20 @@ def assign_roles(
             for j in journals:
                 usage_count[j]["journal"] += 1
 
-            writer.writerow([date, presenters[0], presenters[1], journals[0], journals[1]])
+            writer.writerow(
+                [date, presenters[0], presenters[1], journals[0], journals[1]]
+            )
 
     print("Schedule CSV generated: schedule.csv")
 
+
 def pick_presenters(
-    usage_count, last_presented, current_week,
-    min_presenter_gap, presentation_weight,
-    number=2
+    usage_count,
+    last_presented,
+    current_week,
+    min_presenter_gap,
+    presentation_weight,
+    number=2,
 ):
     """
     Pick 'number' presenters subject to:
@@ -136,10 +177,8 @@ def pick_presenters(
 
     return chosen
 
-def pick_journalers(
-    usage_count, exclude,
-    presentation_weight, number=2
-):
+
+def pick_journalers(usage_count, exclude, presentation_weight, number=2):
     """
     Pick 'number' journalers subject to:
       1. Not being in `exclude` (same-day presenters).
@@ -165,6 +204,7 @@ def pick_journalers(
 
     return chosen
 
+
 if __name__ == "__main__":
     # Example usage:
     fixed_assignments = {
@@ -175,5 +215,5 @@ if __name__ == "__main__":
         n_weeks=16,
         min_presenter_gap=6,
         presentation_weight=4,  # 1 presentation = 4 journals
-        fixed_assignments=fixed_assignments
+        fixed_assignments=fixed_assignments,
     )

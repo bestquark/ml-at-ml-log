@@ -15,7 +15,7 @@ from functions import encrypt_name
 SCOPES = [
     "https://www.googleapis.com/auth/drive",
     "https://www.googleapis.com/auth/presentations",
-    "https://www.googleapis.com/auth/spreadsheets"
+    "https://www.googleapis.com/auth/spreadsheets",
 ]
 
 ###############################################################################
@@ -25,62 +25,79 @@ SCOPES = [
 
 def get_gspread_client():
     service_account_info = st.secrets["gcp_service_account"]
-    credentials = Credentials.from_service_account_info(service_account_info, scopes=SCOPES)
+    credentials = Credentials.from_service_account_info(
+        service_account_info, scopes=SCOPES
+    )
     return gspread.authorize(credentials)
+
 
 def get_sheet(sheet_name):
     client = get_gspread_client()
     spreadsheet_id = st.secrets["google_sheets"]["spreadsheet_id"]
     return client.open_by_key(spreadsheet_id).worksheet(sheet_name)
 
+
 def get_schedule_df():
     ws = get_sheet("Schedule")
     import pandas as pd
+
     data = ws.get_all_records()
     df = pd.DataFrame(data)
-    if 'Date' in df.columns:
-        df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
+    if "Date" in df.columns:
+        df["Date"] = pd.to_datetime(df["Date"], errors="coerce").dt.date
     return df
+
 
 def save_schedule_df(df):
     ws = get_sheet("Schedule")
     ws.clear()
     ws.update([df.columns.values.tolist()] + df.astype(str).values.tolist())
 
+
 def get_participants_list():
     ws = get_sheet("Participants")
     data = ws.get_all_records()
-    return [{"Name": row.get("Name"), "Email": row.get("Email", "")} for row in data if row.get("Name")]
+    return [
+        {"Name": row.get("Name"), "Email": row.get("Email", "")}
+        for row in data
+        if row.get("Name")
+    ]
+
 
 def save_participants_list(participants):
     ws = get_sheet("Participants")
     data = [["Name", "Email"]] + [[p["Name"], p.get("Email", "")] for p in participants]
     ws.clear()
-    ws.update(data)    
+    ws.update(data)
+
 
 def get_drive_service():
     service_account_info = st.secrets["gcp_service_account"]
-    credentials = Credentials.from_service_account_info(service_account_info, scopes=SCOPES)
-    return build('drive', 'v3', credentials=credentials)
+    credentials = Credentials.from_service_account_info(
+        service_account_info, scopes=SCOPES
+    )
+    return build("drive", "v3", credentials=credentials)
+
 
 def upload_file_to_drive(file_name, file_bytes, mime_type, parent_folder_id=None):
     drive_service = get_drive_service()
     media = MediaInMemoryUpload(file_bytes, mimetype=mime_type)
-    file_metadata = {'name': file_name}
+    file_metadata = {"name": file_name}
     if parent_folder_id:
-        file_metadata['parents'] = [parent_folder_id]
-    uploaded_file = drive_service.files().create(
-        body=file_metadata,
-        media_body=media,
-        fields='id, webViewLink'
-    ).execute()
-    return uploaded_file.get('id'), uploaded_file.get('webViewLink')
+        file_metadata["parents"] = [parent_folder_id]
+    uploaded_file = (
+        drive_service.files()
+        .create(body=file_metadata, media_body=media, fields="id, webViewLink")
+        .execute()
+    )
+    return uploaded_file.get("id"), uploaded_file.get("webViewLink")
 
 
 def add_material(date_str, title, description="", pdf_name="", pdf_link=""):
     ws = get_sheet("Materials")
     new_row = [date_str, title, description, pdf_name, pdf_link]
     ws.append_row(new_row)
+
 
 def delete_material_row(row_index):
     ws = get_sheet("Materials")
@@ -104,74 +121,82 @@ def get_all_materials():
             materials_by_date[date].append(material)
     return materials_by_date
 
+
 ###############################################################################
 # Slides Utilities
 ###############################################################################
 
+
 def get_slides_service():
-    credentials = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=SCOPES)
-    return build('slides', 'v1', credentials=credentials)
+    credentials = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"], scopes=SCOPES
+    )
+    return build("slides", "v1", credentials=credentials)
+
 
 def generate_presentation(date, presenter1, presenter2, template_id, folder_id=None):
     drive_service = get_drive_service()
     slides_service = get_slides_service()
-    
+
     # Copy the template presentation
-    copy_body = {'name': f"{date} ML Subgroup Meeting"}
-    copied_file = drive_service.files().copy(fileId=template_id, body=copy_body).execute()
-    presentation_id = copied_file.get('id')
-    
+    copy_body = {"name": f"{date} ML Subgroup Meeting"}
+    copied_file = (
+        drive_service.files().copy(fileId=template_id, body=copy_body).execute()
+    )
+    presentation_id = copied_file.get("id")
+
     # Optionally move the copied file to a specific folder
     if folder_id:
-        file = drive_service.files().get(fileId=presentation_id, fields='parents').execute()
-        previous_parents = ",".join(file.get('parents'))
+        file = (
+            drive_service.files()
+            .get(fileId=presentation_id, fields="parents")
+            .execute()
+        )
+        previous_parents = ",".join(file.get("parents"))
         drive_service.files().update(
             fileId=presentation_id,
             addParents=folder_id,
             removeParents=previous_parents,
-            fields='id, parents'
+            fields="id, parents",
         ).execute()
 
-    permission_body = {'type': 'anyone', 'role': 'writer'}
-    drive_service.permissions().create(fileId=presentation_id, body=permission_body).execute()
-    
+    permission_body = {"type": "anyone", "role": "writer"}
+    drive_service.permissions().create(
+        fileId=presentation_id, body=permission_body
+    ).execute()
+
     requests = [
         {
-            'replaceAllText': {
-                'containsText': {
-                    'text': '{{PRESENTER1}}',
-                    'matchCase': True
-                },
-                'replaceText': presenter1
+            "replaceAllText": {
+                "containsText": {"text": "{{PRESENTER1}}", "matchCase": True},
+                "replaceText": presenter1,
             }
         },
         {
-            'replaceAllText': {
-                'containsText': {
-                    'text': '{{PRESENTER2}}',
-                    'matchCase': True
-                },
-                'replaceText': presenter2
+            "replaceAllText": {
+                "containsText": {"text": "{{PRESENTER2}}", "matchCase": True},
+                "replaceText": presenter2,
             }
         },
         {
-            'replaceAllText': {
-                'containsText': {
-                    'text': '{{DATE}}',
-                    'matchCase': True
-                },
-                'replaceText': datetime.strptime(date, "%Y-%m-%d").strftime("%b %d %Y") 
+            "replaceAllText": {
+                "containsText": {"text": "{{DATE}}", "matchCase": True},
+                "replaceText": datetime.strptime(date, "%Y-%m-%d").strftime("%b %d %Y"),
             }
-        }
+        },
         # Add additional requests here for other placeholders if needed.
     ]
-    
-    body = {'requests': requests}
-    response = slides_service.presentations().batchUpdate(
-        presentationId=presentation_id, body=body).execute()
-    
+
+    body = {"requests": requests}
+    response = (
+        slides_service.presentations()
+        .batchUpdate(presentationId=presentation_id, body=body)
+        .execute()
+    )
+
     presentation_url = f"https://docs.google.com/presentation/d/{presentation_id}/edit"
     return presentation_id, presentation_url
+
 
 def get_all_slides():
     try:
@@ -182,12 +207,14 @@ def get_all_slides():
         st.error(f"Error fetching slides data: {e}")
         return []
 
+
 def find_slide(date_str):
     slides_data = get_all_slides()
     for slide in slides_data:
         if slide.get("Date") == date_str:
             return slide
     return None
+
 
 def add_slide_entry(date_str, presentation_id, presentation_link):
     try:
@@ -198,40 +225,48 @@ def add_slide_entry(date_str, presentation_id, presentation_link):
         st.error(f"Error adding slide entry: {e}")
 
 
-
-
 ###############################################################################
 # CSLab (UofT) Email Utilities via SMTP
 ###############################################################################
 
+
 def get_smtp_connection():
-    smtp_server = st.secrets["smtp_server"]       # e.g. "smtp.cs.toronto.edu"
-    smtp_port = st.secrets.get("smtp_port", 587)    # default to 587 for TLS
-    sender_email = st.secrets["sender_email"]       # your UofT email address
-    smtp_password = st.secrets["smtp_password"]     # your email password
+    smtp_server = st.secrets["smtp_server"]  # e.g. "smtp.cs.toronto.edu"
+    smtp_port = st.secrets.get("smtp_port", 587)  # default to 587 for TLS
+    sender_email = st.secrets["sender_email"]  # your UofT email address
+    smtp_password = st.secrets["smtp_password"]  # your email password
     server = smtplib.SMTP(smtp_server, smtp_port)
     server.starttls()  # secure the connection using TLS
     server.login(sender_email, smtp_password)
     return server
 
+
 def send_email_via_smtp(smtp_conn, sender, to, subject, message_text):
     # Construct the MIMEText message
-    message = MIMEText(message_text, 'html')
-    message['To'] = to
-    message['From'] = sender
-    message['Subject'] = subject
+    message = MIMEText(message_text, "html")
+    message["To"] = to
+    message["From"] = sender
+    message["Subject"] = subject
     # Send the email using the SMTP connection
     smtp_conn.sendmail(sender, to, message.as_string())
 
 
 @st.dialog("Send Confirmation Emails")
-def recipients_dialog(pending_options, pending_mapping, participant_emails, app_url, organizer, sender, email_subject):
+def recipients_dialog(
+    pending_options,
+    pending_mapping,
+    participant_emails,
+    app_url,
+    organizer,
+    sender,
+    email_subject,
+):
     # Show all pending recipients as a multiselect (all checked by default)
     selected = st.multiselect(
         "Select recipients to send emails to:",
         options=pending_options,
         default=pending_options,
-        key="selected_recipients"
+        key="selected_recipients",
     )
     if st.button("Confirm Selection"):
         confirmations_sent = 0
@@ -258,7 +293,9 @@ def recipients_dialog(pending_options, pending_mapping, participant_emails, app_
                 f"&name={encrypted_name}"
             )
             try:
-                formatted_date = dt.datetime.strptime(entry["date"], "%Y-%m-%d").strftime("%B %d, %Y")
+                formatted_date = dt.datetime.strptime(
+                    entry["date"], "%Y-%m-%d"
+                ).strftime("%B %d, %Y")
             except Exception:
                 formatted_date = entry["date"]
 
@@ -268,10 +305,12 @@ def recipients_dialog(pending_options, pending_mapping, participant_emails, app_
                 name_presenter=entry["clean_name"],
                 date=formatted_date,
                 confirmation_link=confirmation_link,
-                name_organizer=organizer
+                name_organizer=organizer,
             )
             try:
-                send_email_via_smtp(smtp_conn, sender, to_email, email_subject, email_message_text)
+                send_email_via_smtp(
+                    smtp_conn, sender, to_email, email_subject, email_message_text
+                )
                 confirmations_sent += 1
             except Exception as e:
                 error_msgs.append(f"Error sending email to {to_email}: {e}")
@@ -293,9 +332,9 @@ def recipients_dialog(pending_options, pending_mapping, participant_emails, app_
 
 
 def send_confirmation_emails():
-    df = get_schedule_df()  
-    participants = get_participants_list()  
-    
+    df = get_schedule_df()
+    participants = get_participants_list()
+
     participant_emails = {}
     for p in participants:
         name = p["Name"].strip()
@@ -315,13 +354,17 @@ def send_confirmation_emails():
         for role in ["Presenter 1", "Presenter 2"]:
             cell_val = row.get(role, "")
             if isinstance(cell_val, str) and cell_val.strip().startswith("[P]"):
-                pending_entries.append({
-                    "date": meeting_date_str,
-                    "role": role,
-                    "pending_name": cell_val.strip(),               # e.g. "[P] Abdul"
-                    "clean_name": cell_val.replace("[P]", "").strip() # e.g. "Abdul"
-                })
-    
+                pending_entries.append(
+                    {
+                        "date": meeting_date_str,
+                        "role": role,
+                        "pending_name": cell_val.strip(),  # e.g. "[P] Abdul"
+                        "clean_name": cell_val.replace(
+                            "[P]", ""
+                        ).strip(),  # e.g. "Abdul"
+                    }
+                )
+
     if not pending_entries:
         st.info("No pending confirmation entries found.")
         return
@@ -345,5 +388,13 @@ def send_confirmation_emails():
     organizer = st.secrets["organizer_name"]
     email_subject = "[Confirmation Required] ML Subgroup"
 
-    recipients_dialog(pending_options, pending_mapping, participant_emails, app_url, organizer, sender, email_subject)
-    st.stop()  
+    recipients_dialog(
+        pending_options,
+        pending_mapping,
+        participant_emails,
+        app_url,
+        organizer,
+        sender,
+        email_subject,
+    )
+    st.stop()
