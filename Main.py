@@ -3,7 +3,7 @@ import pandas as pd
 import datetime
 import time
 
-import functions as fns
+import utils as fns
 import google_utils as gu
 
 
