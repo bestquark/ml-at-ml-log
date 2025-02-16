@@ -10,7 +10,7 @@ from email.mime.text import MIMEText
 import smtplib
 import time
 
-from functions import encrypt_name
+from funcs import encrypt_name
 
 SCOPES = [
     "https://www.googleapis.com/auth/drive",
