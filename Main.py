@@ -384,7 +384,7 @@ else:
     schedule_placeholder = st.container()
 
     st.markdown(
-    """**Status:** ⚫ Accepted -- 🔵 Pending confirmation -- 🟡 Need speaker -- 🔴 Cancelled"""
+    """**Status:** ⚫ Accepted -- 🔵 Pending confirmation -- 🔴 Cancelled"""
     )
     col1, col2 = st.columns([0.3, 1])  # Adjust ratios as needed
     with col1:
@@ -573,6 +573,7 @@ else:
     for col in ["Presenter 1", "Presenter 2"]:
         if col in df_full.columns:
             for person in df_full[col]:
+                person = person.strip()
                 if not person or person not in participants_usage:
                     continue
                 participants_usage[person]["presenter_count"] += 1

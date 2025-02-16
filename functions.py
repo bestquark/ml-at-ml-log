@@ -15,7 +15,7 @@ def get_next_wednesday(after_date):
     return after_date + datetime.timedelta(days=days_ahead)
 
 def highlight_empty(val):
-    return 'background-color: yellow' if val == "EMPTY" else ''
+    return 'background-color: goldenrod' if val in ["EMPTY", ""," "] else ''
 
 def highlight_random(val):
     # make light blue if val starts with [P]
