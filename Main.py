@@ -624,6 +624,10 @@ else:
         )
 
         if not df_scores.empty:
+            # column_config = {
+            #     "Name": st.column_config.TextColumn("Name", width="large"),  # Increase first column width
+            #     "Score": st.column_config.NumberColumn("Score", width="small")  # Keep second column smaller
+            # }
             st.dataframe(styled_df, use_container_width=True)
         else:
             st.info("No matching participants.")
