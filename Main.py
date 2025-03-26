@@ -5,6 +5,7 @@ import time
 
 import funcs as fns
 import google_utils as gu
+import assign_schedule as assign
 
 
 MLATML_FOLDER_ID = st.secrets["mlatml_folder_id"]  # Folder ID for ML@ML
@@ -474,6 +475,12 @@ else:
                 col1, col2, col3 = st.columns(
                     [0.2, 0.15, 0.65]
                 )  # Adjust ratios as needed
+
+                if st.button("Fill empty slots"): 
+                    filled_df = assign.fill_df_random(16) 
+                    gu.save_schedule_df(filled_df)
+                    refresh_main()
+                    st.rerun()
 
                 message_placeholder = st.empty()
 
