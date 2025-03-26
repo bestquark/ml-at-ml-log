@@ -254,17 +254,21 @@ def pick_presenters(
 
     return selected_presenters
 
-def fill_df_random(weeks_in_adv=16):
+def fill_empty_random(seed=None):
+    if seed is not None:
+        random.seed(seed)
 
     names_dict = gu.get_participants_list()
     names = [n["Name"] for n in names_dict]
 
     schedule = gu.get_schedule_df()
     fixed_assignments = {}
-
+    weeks_with_empty = 0
     for i, row in schedule.iterrows():
         p1 = row["Presenter 1"] if row["Presenter 1"] != "EMPTY" else None
         p2 = row["Presenter 2"] if row["Presenter 2"] != "EMPTY" else None
+        if p1 is None and p2 is None:
+            weeks_with_empty += 1
         presenters = [p for p in [p1, p2] if p]
         # remove repeated presenters
         # presenters = list(set(presenters))
@@ -277,7 +281,7 @@ def fill_df_random(weeks_in_adv=16):
 
     assign_roles(
         names,
-        n_weeks=min_week_filled + weeks_in_adv,
+        n_weeks=min_week_filled + weeks_with_empty,
         min_presenter_gap=7,
         presentation_weight=4,  # 1 presentation = 4 usage points
         fixed_assignments=fixed_assignments,
@@ -295,30 +299,5 @@ if __name__ == "__main__":
     # }
 
     # get fixed assignments from google sheet
-
-
-    names_dict = gu.get_participants_list()
-    names = [n["Name"] for n in names_dict]
-
-    schedule = gu.get_schedule_df()
-
-    fixed_assignments = {}
-
-    for i, row in schedule.iterrows():
-        p1 = row["Presenter 1"] if row["Presenter 1"] != "EMPTY" else None
-        p2 = row["Presenter 2"] if row["Presenter 2"] != "EMPTY" else None
-        presenters = [p for p in [p1, p2] if p]
-        # remove repeated presenters
-        # presenters = list(set(presenters))
-        if len(presenters) == 0:
-            continue
-        fixed_assignments[i] = {"presenters": presenters}
-    print(fixed_assignments)
-
-    assign_roles(
-        names,
-        n_weeks=32,
-        min_presenter_gap=7,
-        presentation_weight=4,  # 1 presentation = 4 usage points
-        fixed_assignments=fixed_assignments,
-    )
+    seed = 0
+    fill_empty_random(seed=seed)

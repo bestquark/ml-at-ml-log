@@ -162,7 +162,7 @@ if "confirmation" in params:
 
     # Display option buttons in three columns.
     confirm_clicked = st.button("Confirm ✅", key="confirm")
-    reschedule_clicked = st.button("Reschedule 🔁", key="reschedule")
+    reschedule_clicked = st.button("Reschedule (or want full block) 🔁", key="reschedule")
     dont_want_clicked = st.button("Decline ❌", key="dont_want")
 
     # Determine which button was clicked.
@@ -472,15 +472,10 @@ else:
                     hide_index=True,
                     key="schedule_editor",
                 )
-                col1, col2, col3 = st.columns(
-                    [0.2, 0.15, 0.65]
+                col1, col2, col3, col4 = st.columns(
+                    [0.2, 0.15, 0.32, 0.33]
                 )  # Adjust ratios as needed
 
-                if st.button("Fill empty slots"): 
-                    filled_df = assign.fill_df_random(16) 
-                    gu.save_schedule_df(filled_df)
-                    refresh_main()
-                    st.rerun()
 
                 message_placeholder = st.empty()
 
@@ -546,6 +541,13 @@ else:
                         result = gu.send_confirmation_emails()
                         # st.info(result)
                         message_placeholder.info(result)
+
+                with col4:
+                    if st.button("Fill empty slots"): 
+                        filled_df = assign.fill_empty_random(seed=0) 
+                        gu.save_schedule_df(filled_df)
+                        refresh_main()
+                        st.rerun()
 
                 # ---- Delete Row Option ----
                 if not df.empty:
