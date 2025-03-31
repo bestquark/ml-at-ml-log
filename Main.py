@@ -156,13 +156,13 @@ if "confirmation" in params:
 
     st.subheader("Schedule form 📝")
     st.write(
-        f"Dear **{''.join(pending_name.split()[1:])}**, you have been randomly scheduled to present on **{meeting_date.strftime('%B %d, %Y')}** as **{role}**."
+        f"Dear **{''.join(pending_name.split()[1:])}**, you have been randomly scheduled to present for 20 minutes on **{meeting_date.strftime('%B %d, %Y')}** as **{role}**. If you either are unable to present on this date **or** would like to have 40 minutes instead, choose the 'Reschedule' option."
     )
     st.write("**Please select one of the options below:**")
 
     # Display option buttons in three columns.
     confirm_clicked = st.button("Confirm ✅", key="confirm")
-    reschedule_clicked = st.button("Reschedule (or want full block) 🔁", key="reschedule")
+    reschedule_clicked = st.button("Reschedule 🔁", key="reschedule")
     dont_want_clicked = st.button("Decline ❌", key="dont_want")
 
     # Determine which button was clicked.
