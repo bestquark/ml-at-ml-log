@@ -544,7 +544,7 @@ else:
 
                 with col4:
                     if st.button("Fill empty slots"): 
-                        filled_df = assign.fill_empty_random(seed=0) 
+                        filled_df = assign.fill_empty_slots(seed=0) 
                         gu.save_schedule_df(filled_df)
                         refresh_main()
                         st.rerun()
