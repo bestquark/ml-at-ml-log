@@ -627,13 +627,20 @@ else:
 
     participants_usage = {p["Name"]: {"presenter_count": 0} for p in valid_participants}
 
+    # Calculate cutoff date: 5 months ago from today (same as assign_roles)
+    today = datetime.date.today()
+    five_months_ago = today - datetime.timedelta(days=150)  # ~5 months (150 days)
+
     for col in ["Presenter 1", "Presenter 2"]:
         if col in df_full.columns:
-            for person in df_full[col]:
-                person = person.strip()
+            for idx, row in df_full.iterrows():
+                presentation_date = row["Date"]
+                person = row[col].strip()
                 if not person or person not in participants_usage:
                     continue
-                participants_usage[person]["presenter_count"] += 1
+                # Only count presentations within the last 5 months
+                if presentation_date >= five_months_ago:
+                    participants_usage[person]["presenter_count"] += 1
 
     records = []
     for participant in valid_participants:
