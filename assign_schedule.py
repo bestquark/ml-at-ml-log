@@ -32,9 +32,14 @@ def assign_roles(
     future_assignments = {week: [] for week in range(n_weeks)}
 
     schedule_df['Date'] = pd.to_datetime(schedule_df['Date'])
+    
+    # Calculate cutoff date: 5 months ago from today
+    today = datetime.date.today()
+    five_months_ago = today - datetime.timedelta(days=150)  # ~5 months (150 days)
 
     # First pass: Prepopulate future assignments with existing presenters
     for week_index, row in schedule_df.iterrows():
+        presentation_date = row['Date'].date()
         presenters = [row['Presenter 1'], row['Presenter 2']]
         for presenter in presenters:
             presenter_clean = presenter.replace("[P] ", "")
@@ -47,6 +52,7 @@ def assign_roles(
 
     # Second pass: Fill empty slots considering future assignments
     for week_index, row in schedule_df.iterrows():
+        presentation_date = row['Date'].date()
         presenters = [row['Presenter 1'], row['Presenter 2']]
 
         for i in range(2):
@@ -64,8 +70,9 @@ def assign_roles(
                 )[0]
                 presenters[i] = f"[P] {additional_presenter}"
 
-                # Update usage metrics
-                usage_count[additional_presenter] += 1
+                # Update usage metrics only if within date range
+                if presentation_date >= five_months_ago:
+                    usage_count[additional_presenter] += 1
                 last_presented[additional_presenter] = week_index
 
                 # Update future assignments for the newly picked presenter
@@ -76,7 +83,9 @@ def assign_roles(
             else:
                 presenter_clean = presenters[i].replace("[P] ", "")
                 if presenter_clean in names:
-                    usage_count[presenter_clean] += 1
+                    # Update usage metrics only if within date range
+                    if presentation_date >= five_months_ago:
+                        usage_count[presenter_clean] += 1
                     last_presented[presenter_clean] = week_index
 
         # Update the DataFrame
