@@ -410,7 +410,7 @@ else:
         st.warning("No 'Date' column found in CSV.")
         st.stop()
 
-    st.title("Weekly Schedule 📅")
+    st.title("Weekly Schedule :calendar:")
 
     df = df_full.copy()
 
@@ -617,7 +617,7 @@ else:
 
     # ----- PARTICIPANT USAGE SCORES -----
     st.write("---")
-    st.subheader("Participants 🤖")
+    st.subheader("Participants :robot_face:")
 
     try:
         valid_participants = load_participants_data()
@@ -694,7 +694,7 @@ else:
         if not df_scores.empty:
             column_config = {
                 "Name": st.column_config.TextColumn("Name", width="large"),  # Increase first column width
-                "Score": st.column_config.NumberColumn("Score (computed over last 5 months)", width="small")  # Keep second column smaller
+                "Score": st.column_config.NumberColumn("Score (over past 5 months)", width="medium")  # Keep second column smaller
             }
             st.dataframe(styled_df, use_container_width=True, column_config=column_config)
         else:
