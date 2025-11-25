@@ -509,7 +509,7 @@ else:
                             last_date = updated_df["Date"].max()
                         else:
                             last_date = datetime.date.today()
-                        next_wed = fns.get_next_wednesday(last_date)
+                        next_wed = fns.get_next_tuesday(last_date)
 
                         # Create a new row with default values using updated_df's columns
                         new_row = {}

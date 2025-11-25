@@ -16,6 +16,14 @@ def get_next_wednesday(after_date):
     return after_date + datetime.timedelta(days=days_ahead)
 
 
+def get_next_tuesday(after_date):
+    # Tuesday is weekday() == 1
+    days_ahead = 1 - after_date.weekday()
+    if days_ahead <= 0:  # Target day already passed this week
+        days_ahead += 7
+    return after_date + datetime.timedelta(days=days_ahead)
+
+
 def highlight_empty(val):
     return "background-color: goldenrod" if val in ["EMPTY", "", " "] else ""
 
