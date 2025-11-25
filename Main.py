@@ -145,9 +145,8 @@ if "confirmation" in params:
             st.stop()
         row_idx = row_indices[0]
 
-    if not any(
-        df.at[row_idx, role].startswith("[P]")
-        for role in ["Presenter 1", "Presenter 2"]
+    if role not in df.columns or not (
+        isinstance(df.at[row_idx, role], str) and df.at[row_idx, role].startswith("[P]")
     ):
         st.error(
             "This form has already been used, please contact the organizer if you need to change your response."
@@ -245,8 +244,8 @@ elif "date" in params:
         st.warning("No entries found for this date.")
         st.stop()
 
-    # 4. Show info about presenters
-    role_cols = ["Presenter 1", "Presenter 2"]
+    # 4. Show info about presenter
+    role_cols = ["Presenter"]
     role_cols = [col for col in role_cols if col in day_df.columns]
     ps = []
     for idx, row in day_df.iterrows():
@@ -255,7 +254,7 @@ elif "date" in params:
         )
         st.write(f"### Schedule for {datestr}")
         for col in role_cols:
-            if row[col]:
+            if row.get(col):
                 ps.append(row[col])
                 st.write(f"##### 🚀 &nbsp; **{col}**: {row[col]}")
 
@@ -281,10 +280,10 @@ elif "date" in params:
                 except HttpError as e:
                     st.error(f"Template file not found or access denied: {e}")
 
+                presenter_name = ps[0] if ps else ""
                 presentation_id, presentation_link = gu.generate_presentation(
                     selected_date_str,
-                    ps[0],
-                    ps[1],
+                    presenter_name,
                     SLIDES_TEMPLATE_ID,
                     folder_id=MLATML_SLIDES_FOLDER_ID,
                 )
@@ -437,7 +436,7 @@ else:
     with schedule_placeholder:
         # Search by participant name
         search_name = st.text_input("Search by participant name:")
-        role_cols = ["Presenter 1", "Presenter 2"]
+        role_cols = ["Presenter"]
         role_cols = [c for c in role_cols if c in df.columns]
 
         if search_name.strip():
@@ -553,7 +552,7 @@ else:
                 if not df.empty:
                     # Build a dictionary mapping each row label to its original index (do not reset the index)
                     row_dict = {
-                        f"Date: {row['Date']}, Presenters: {row['Presenter 1']} & {row['Presenter 2']}": idx
+                        f"Date: {row['Date']}, Presenter: {row.get('Presenter', '')}": idx
                         for idx, row in df.iterrows()
                     }
 
@@ -592,9 +591,7 @@ else:
                 )
 
                 # Apply styling to Presenter columns to highlight "EMPTY" cells
-                style_cols = [
-                    col for col in ["Presenter 1", "Presenter 2"] if col in df.columns
-                ]
+                style_cols = [col for col in ["Presenter"] if col in df.columns]
                 styled_df = df.style.map(fns.highlight_empty, subset=style_cols).map(
                     fns.highlight_random, subset=style_cols
                 )
@@ -631,11 +628,11 @@ else:
     today = datetime.date.today()
     five_months_ago = today - datetime.timedelta(days=150)  # ~5 months (150 days)
 
-    for col in ["Presenter 1", "Presenter 2"]:
+    for col in ["Presenter"]:
         if col in df_full.columns:
             for idx, row in df_full.iterrows():
                 presentation_date = row["Date"]
-                person = row[col].strip()
+                person = str(row.get(col, "")).strip()
                 if not person or person not in participants_usage:
                     continue
                 # Only count presentations within the last 5 months

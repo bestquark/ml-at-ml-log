@@ -40,57 +40,52 @@ def assign_roles(
     # First pass: Prepopulate future assignments with existing presenters
     for week_index, row in schedule_df.iterrows():
         presentation_date = row['Date'].date()
-        presenters = [row['Presenter 1'], row['Presenter 2']]
-        for presenter in presenters:
-            presenter_clean = presenter.replace("[P] ", "")
-            if presenter_clean != 'EMPTY':
-                # Update future assignments to avoid collisions
-                for future_week in range(
-                    week_index + 1, min(week_index + min_presenter_gap, n_weeks)
-                ):
-                    future_assignments[future_week].append(presenter_clean)
+        presenter = row.get('Presenter', 'EMPTY')
+        presenter_clean = str(presenter).replace("[P] ", "")
+        if presenter_clean != 'EMPTY':
+            for future_week in range(
+                week_index + 1, min(week_index + min_presenter_gap, n_weeks)
+            ):
+                future_assignments[future_week].append(presenter_clean)
 
     # Second pass: Fill empty slots considering future assignments
     for week_index, row in schedule_df.iterrows():
         presentation_date = row['Date'].date()
-        presenters = [row['Presenter 1'], row['Presenter 2']]
+        presenter = row.get('Presenter', 'EMPTY')
 
-        for i in range(2):
-            if presenters[i] == 'EMPTY':
-                additional_presenter = pick_presenters(
-                    names,
-                    usage_count,
-                    last_presented,
-                    future_assignments,
-                    week_index,
-                    min_presenter_gap,
-                    presentation_weight,
-                    n_weeks,
-                    number=1,
-                )[0]
-                presenters[i] = f"[P] {additional_presenter}"
+        if presenter == 'EMPTY':
+            additional_presenter = pick_presenters(
+                names,
+                usage_count,
+                last_presented,
+                future_assignments,
+                week_index,
+                min_presenter_gap,
+                presentation_weight,
+                n_weeks,
+                number=1,
+            )[0]
+            presenter = f"[P] {additional_presenter}"
 
-                # Update usage metrics only if within date range
+            # Update usage metrics only if within date range
+            if presentation_date >= five_months_ago:
+                usage_count[additional_presenter] += 1
+            last_presented[additional_presenter] = week_index
+
+            # Update future assignments for the newly picked presenter
+            for future_week in range(
+                week_index + 1, min(week_index + min_presenter_gap, n_weeks)
+            ):
+                future_assignments[future_week].append(additional_presenter)
+        else:
+            presenter_clean = str(presenter).replace("[P] ", "")
+            if presenter_clean in names:
                 if presentation_date >= five_months_ago:
-                    usage_count[additional_presenter] += 1
-                last_presented[additional_presenter] = week_index
-
-                # Update future assignments for the newly picked presenter
-                for future_week in range(
-                    week_index + 1, min(week_index + min_presenter_gap, n_weeks)
-                ):
-                    future_assignments[future_week].append(additional_presenter)
-            else:
-                presenter_clean = presenters[i].replace("[P] ", "")
-                if presenter_clean in names:
-                    # Update usage metrics only if within date range
-                    if presentation_date >= five_months_ago:
-                        usage_count[presenter_clean] += 1
-                    last_presented[presenter_clean] = week_index
+                    usage_count[presenter_clean] += 1
+                last_presented[presenter_clean] = week_index
 
         # Update the DataFrame
-        schedule_df.at[week_index, 'Presenter 1'] = presenters[0]
-        schedule_df.at[week_index, 'Presenter 2'] = presenters[1]
+        schedule_df.at[week_index, 'Presenter'] = presenter
 
     return schedule_df
 
@@ -103,7 +98,7 @@ def pick_presenters(
     min_presenter_gap,
     presentation_weight,
     n_weeks,
-    number=2,
+    number=1,
 ):
     candidates = []
 

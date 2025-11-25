@@ -134,7 +134,7 @@ def get_slides_service():
     return build("slides", "v1", credentials=credentials)
 
 
-def generate_presentation(date, presenter1, presenter2, template_id, folder_id=None):
+def generate_presentation(date, presenter, template_id, folder_id=None):
     drive_service = get_drive_service()
     slides_service = get_slides_service()
 
@@ -168,14 +168,8 @@ def generate_presentation(date, presenter1, presenter2, template_id, folder_id=N
     requests = [
         {
             "replaceAllText": {
-                "containsText": {"text": "{{PRESENTER1}}", "matchCase": True},
-                "replaceText": presenter1,
-            }
-        },
-        {
-            "replaceAllText": {
-                "containsText": {"text": "{{PRESENTER2}}", "matchCase": True},
-                "replaceText": presenter2,
+                "containsText": {"text": "{{PRESENTER}}", "matchCase": True},
+                "replaceText": presenter,
             }
         },
         {
@@ -351,7 +345,7 @@ def send_confirmation_emails():
             if isinstance(meeting_date, dt.date)
             else str(meeting_date)
         )
-        for role in ["Presenter 1", "Presenter 2"]:
+        for role in ["Presenter"]:
             cell_val = row.get(role, "")
             if isinstance(cell_val, str) and cell_val.strip().startswith("[P]"):
                 pending_entries.append(
