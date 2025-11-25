@@ -617,7 +617,7 @@ else:
 
     # ----- PARTICIPANT USAGE SCORES -----
     st.write("---")
-    st.subheader("Participants :robot_face:")
+    st.subheader("Participants :moyai:")
 
     try:
         valid_participants = load_participants_data()
