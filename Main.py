@@ -155,7 +155,7 @@ if "confirmation" in params:
 
     st.subheader("Schedule form 📝")
     st.write(
-        f"Dear **{''.join(pending_name.split()[1:])}**, you have been randomly scheduled to present for 20 minutes on **{meeting_date.strftime('%B %d, %Y')}** as **{role}**. If you either are unable to present on this date **or** would like to have 40 minutes instead, choose the 'Reschedule' option."
+        f"Dear **{''.join(pending_name.split()[1:])}**, you have been randomly scheduled to present for 50 minutes on **{meeting_date.strftime('%B %d, %Y')}** as **{role}**. If you are unable to present on this date, choose the 'Reschedule' option."
     )
     st.write("**Please select one of the options below:**")
 
