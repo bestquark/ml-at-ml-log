@@ -7,7 +7,7 @@ import os
 
 # ----- PAGE CONFIG -----
 st.set_page_config(
-    page_title="ML@ML Schedule",
+    page_title="QC@ML Schedule",
     page_icon="logo.png",
     initial_sidebar_state="collapsed",
     layout="centered",
@@ -47,7 +47,7 @@ with top_container:
     with col1:
         st.image("logo.png", width=60)
     with col2:
-        st.markdown("## ML@ML")
+        st.markdown("## QC@ML")
 
 # ----- GET QUERY PARAMS -----
 selected_date_str = st.query_params.get("date", "")

@@ -54,7 +54,7 @@ def refresh_detail():
 
 # ----- PAGE CONFIG -----
 st.set_page_config(
-    page_title="ML@ML",
+    page_title="QC@ML",
     page_icon="logo.png",
     initial_sidebar_state="collapsed",
     layout="centered",
@@ -94,7 +94,7 @@ with top_container:
     with col1:
         st.image("logo.png", width=60)
     with col2:
-        st.title("ML@ML")
+        st.title("QC@ML")
 
 st.write("---")
 
@@ -219,7 +219,7 @@ elif "date" in params:
         st.error("Invalid date in URL. Please go back to the schedule.")
         st.stop()
 
-    st.title(f"ML Subgroup Meeting")
+    st.title(f"Quantum Subgroup Meeting")
     # st.title("")
 
     try:

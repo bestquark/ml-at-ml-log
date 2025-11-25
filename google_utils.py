@@ -139,7 +139,7 @@ def generate_presentation(date, presenter1, presenter2, template_id, folder_id=N
     slides_service = get_slides_service()
 
     # Copy the template presentation
-    copy_body = {"name": f"{date} ML Subgroup Meeting"}
+    copy_body = {"name": f"{date} Quantum Subgroup Meeting"}
     copied_file = (
         drive_service.files().copy(fileId=template_id, body=copy_body).execute()
     )
@@ -386,7 +386,7 @@ def send_confirmation_emails():
     sender = st.secrets["sender_email"]
     app_url = st.secrets["app_url"]
     organizer = st.secrets["organizer_name"]
-    email_subject = "[Confirmation Required] ML Subgroup"
+    email_subject = "[Confirmation Required] Quantum Subgroup"
 
     recipients_dialog(
         pending_options,

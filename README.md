@@ -1,4 +1,4 @@
-# ML@ML Log
+# QC@ML Log
 
 To randomly make a schedule run 
 ```bash
